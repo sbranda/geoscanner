@@ -1,6 +1,33 @@
 # Atlas Errante — PWA
 
-Juego de adivinar lugares del mundo usando mapas de OpenStreetMap.
+Juego de adivinar lugares del mundo. Explora con fotos reales a nivel de
+calle de **Mapillary** (comunidad abierta, sin costo) y adivina en un mapa
+de **OpenStreetMap**.
+
+## Consigue tu token de Mapillary (gratis, sin tarjeta)
+
+1. Entra a https://www.mapillary.com y crea una cuenta gratis.
+2. Ve a https://www.mapillary.com/dashboard/developers
+3. Haz clic en **"Register application"**, completa el nombre de tu app.
+4. Copia el **Client Token** que aparece (empieza con `MLY|...`).
+5. Abre `index.html`, busca la línea:
+   ```
+   const MAPILLARY_TOKEN = "TU_MAPILLARY_TOKEN_AQUI";
+   ```
+   y reemplaza el texto entre comillas por tu token real.
+
+No necesitas tarjeta de crédito ni facturación para esto.
+
+## Cobertura de Mapillary
+
+A diferencia de Street View, Mapillary depende de fotos subidas por la
+comunidad, así que la cobertura varía mucho de un lugar a otro. El juego
+ya maneja esto: si no encuentra fotos cerca de un lugar de la lista,
+prueba automáticamente con otro. Si notas que ciertas rondas tardan en
+cargar o casi nunca aparecen, puedes editar el arreglo `LOCATIONS` en
+`index.html` y priorizar ciudades con más actividad en Mapillary
+(en general: Europa occidental, EE.UU., y grandes ciudades de
+Latinoamérica y Asia tienen mejor cobertura que zonas rurales).
 
 ## Por qué necesitas subir esto a un servidor
 

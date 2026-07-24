@@ -15,13 +15,15 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mapillary-js@4/dist/mapillary.css" />
+
 <style>
   :root{
     --ink:#1B2A4A;
-    --ink-2:#243759;
     --parchment:#EDE4D3;
     --parchment-2:#E2D5B8;
     --brass:#B8863B;
@@ -86,6 +88,18 @@
     border-left: 3px solid var(--brass);
     background: rgba(184,134,59,0.06);
   }
+  .key-warning{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.8rem;
+    background:#fff3cd;
+    border:1px solid #e0c46c;
+    color:#6b5217;
+    padding:10px 16px;
+    border-radius:4px;
+    margin-bottom:18px;
+    display:none;
+  }
+  .key-warning.show{ display:block; }
 
   .board{
     display:grid;
@@ -133,10 +147,22 @@
     text-transform:uppercase;
     color: var(--brass-dark);
   }
-  #mapExplorer, #mapGuess{
+  #streetview, #mapGuess{
     height: 46vh;
     min-height:320px;
     width:100%;
+    background:#dcd3bd;
+  }
+  #streetview .loading-msg{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100%;
+    font-family:'JetBrains Mono', monospace;
+    color:#8a7f6a;
+    font-size:0.85rem;
+    text-align:center;
+    padding:20px;
   }
 
   .controls{
@@ -182,7 +208,6 @@
     color:#5b5346;
   }
 
-  /* Result overlay */
   #overlay{
     position:fixed; inset:0;
     background: rgba(27,42,74,0.55);
@@ -235,7 +260,6 @@
   .stat .num{ font-size:1.6rem; font-weight:700; color:var(--brass-dark); display:block; }
   .stat .lbl{ font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:#5b5346;}
 
-  #finalCard{ max-width:520px; }
   .round-list{
     text-align:left;
     font-family:'JetBrains Mono', monospace;
@@ -260,12 +284,13 @@
 </header>
 
 <main>
-  <p class="instructions">Explora el terreno a la izquierda — sin nombres, sin letreros — y marca en el mapa de la derecha dónde crees que está. Cuanto más cerca, más puntos.</p>
+  <p class="instructions">Mira alrededor con fotos reales de la comunidad Mapillary — sin nombres, sin letreros — y marca en el mapa de la derecha dónde crees que está.</p>
+  <p class="key-warning" id="keyWarning">⚠ Falta configurar tu token de Mapillary. Edita index.html y reemplaza <code>TU_MAPILLARY_TOKEN_AQUI</code> por tu Client Token real (gratis, sin tarjeta).</p>
 
   <div class="board">
     <div class="panel">
-      <div class="panel-label"><span class="eyebrow">El lugar</span> Explora sin pistas</div>
-      <div id="mapExplorer"></div>
+      <div class="panel-label"><span class="eyebrow">El lugar</span> Mira alrededor</div>
+      <div id="streetview"><div class="loading-msg">Buscando una imagen de Mapillary cercana…</div></div>
     </div>
     <div class="panel">
       <div class="panel-label"><span class="eyebrow">Tu conjetura</span> Toca el mapa para marcar</div>
@@ -296,11 +321,14 @@
   </div>
 </div>
 
-<div id="overlay2">
-</div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mapillary-js@4/dist/mapillary.js"></script>
 <script>
+// ======== CONFIGURA TU TOKEN AQUÍ ========
+// Consíguelo gratis en https://www.mapillary.com/dashboard/developers
+const MAPILLARY_TOKEN = "TU_MAPILLARY_TOKEN_AQUI";
+// ==========================================
+
 const LOCATIONS = [
   {name:"Venecia", country:"Italia", lat:45.4408, lon:12.3155},
   {name:"Marrakech", country:"Marruecos", lat:31.6295, lon:-7.9811},
@@ -312,37 +340,36 @@ const LOCATIONS = [
   {name:"Dubrovnik", country:"Croacia", lat:42.6507, lon:18.0944},
   {name:"Hoi An", country:"Vietnam", lat:15.8801, lon:108.3380},
   {name:"Jaipur", country:"India", lat:26.9124, lon:75.7873},
-  {name:"Queenstown", country:"Nueva Zelanda", lat:-45.0312, lon:168.6626},
   {name:"Fez", country:"Marruecos", lat:34.0181, lon:-5.0078},
   {name:"Salvador de Bahía", country:"Brasil", lat:-12.9777, lon:-38.5016},
   {name:"Tallin", country:"Estonia", lat:59.4370, lon:24.7536},
   {name:"Chiang Mai", country:"Tailandia", lat:18.7883, lon:98.9853},
   {name:"Brujas", country:"Bélgica", lat:51.2093, lon:3.2247},
-  {name:"Santorini", country:"Grecia", lat:36.3932, lon:25.4615},
-  {name:"Wadi Musa (Petra)", country:"Jordania", lat:30.3285, lon:35.4444},
-  {name:"Lijiang", country:"China", lat:26.8721, lon:100.2300},
   {name:"Charleston", country:"Estados Unidos", lat:32.7765, lon:-79.9311},
   {name:"Bergen", country:"Noruega", lat:60.3913, lon:5.3221},
   {name:"Valparaíso", country:"Chile", lat:-33.0472, lon:-71.6127},
-  {name:"Luang Prabang", country:"Laos", lat:19.8856, lon:102.1347},
-  {name:"Essaouira", country:"Marruecos", lat:31.5085, lon:-9.7595},
   {name:"Galway", country:"Irlanda", lat:53.2707, lon:-9.0568},
-  {name:"Stone Town, Zanzíbar", country:"Tanzania", lat:-6.1659, lon:39.1996},
-  {name:"Antigua", country:"Guatemala", lat:14.5586, lon:-90.7295},
   {name:"Liubliana", country:"Eslovenia", lat:46.0569, lon:14.5058},
   {name:"Kotor", country:"Montenegro", lat:42.4247, lon:18.7712},
   {name:"Hallstatt", country:"Austria", lat:47.5622, lon:13.6493},
-  {name:"Bagan", country:"Myanmar", lat:21.1717, lon:94.8585},
   {name:"Cartagena de Indias", country:"Colombia", lat:10.3910, lon:-75.4794},
   {name:"Matera", country:"Italia", lat:40.6664, lon:16.6043},
-  {name:"Ubud", country:"Indonesia", lat:-8.5069, lon:115.2625},
-  {name:"Alejandría", country:"Egipto", lat:31.2001, lon:29.9187},
   {name:"Gdansk", country:"Polonia", lat:54.3520, lon:18.6466},
-  {name:"Colombo", country:"Sri Lanka", lat:6.9271, lon:79.8612},
-  {name:"Yakutsk", country:"Rusia", lat:62.0281, lon:129.7325},
-  {name:"Alice Springs", country:"Australia", lat:-23.6980, lon:133.8807},
   {name:"Ámsterdam", country:"Países Bajos", lat:52.3676, lon:4.9041},
-  {name:"Estambul", country:"Turquía", lat:41.0082, lon:28.9784}
+  {name:"Estambul", country:"Turquía", lat:41.0082, lon:28.9784},
+  {name:"Praga", country:"República Checa", lat:50.0755, lon:14.4378},
+  {name:"Edimburgo", country:"Reino Unido", lat:55.9533, lon:-3.1883},
+  {name:"Lisboa", country:"Portugal", lat:38.7223, lon:-9.1393},
+  {name:"Ciudad de México", country:"México", lat:19.4326, lon:-99.1332},
+  {name:"Berlín", country:"Alemania", lat:52.5200, lon:13.4050},
+  {name:"París", country:"Francia", lat:48.8566, lon:2.3522},
+  {name:"Barcelona", country:"España", lat:41.3874, lon:2.1686},
+  {name:"Budapest", country:"Hungría", lat:47.4979, lon:19.0402},
+  {name:"Viena", country:"Austria", lat:48.2082, lon:16.3738},
+  {name:"Copenhague", country:"Dinamarca", lat:55.6761, lon:12.5683},
+  {name:"Montreal", country:"Canadá", lat:45.5019, lon:-73.5674},
+  {name:"Melbourne", country:"Australia", lat:-37.8136, lon:144.9631},
+  {name:"Buenos Aires", country:"Argentina", lat:-34.6037, lon:-58.3816}
 ];
 
 const TOTAL_ROUNDS = 5;
@@ -351,8 +378,10 @@ let round = 0;
 let totalScore = 0;
 let scores = [];
 let current = null;
-let guessMarker = null;
 let confirmed = false;
+
+let guessMap, guessMarker, resultLine, actualMarker;
+let viewer = null;
 
 function shuffle(arr){
   const a = arr.slice();
@@ -362,35 +391,6 @@ function shuffle(arr){
   }
   return a;
 }
-
-// ---- Maps ----
-const explorer = L.map('mapExplorer', {zoomControl:true, attributionControl:true});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  subdomains: 'abcd',
-  maxZoom: 19
-}).addTo(explorer);
-
-const guessMap = L.map('mapGuess', {zoomControl:true, attributionControl:true, worldCopyJump:true}).setView([20,0], 2);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  subdomains: 'abcd',
-  maxZoom: 19
-}).addTo(guessMap);
-
-const actualIcon = L.divIcon({className:'', html:'<div style="background:#2F6B62;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #2F6B62;"></div>', iconSize:[16,16]});
-const guessIcon = L.divIcon({className:'', html:'<div style="background:#B8863B;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #B8863B;"></div>', iconSize:[16,16]});
-
-let resultLine = null;
-let actualMarker = null;
-
-guessMap.on('click', function(e){
-  if(confirmed) return;
-  if(guessMarker){ guessMap.removeLayer(guessMarker); }
-  guessMarker = L.marker(e.latlng, {icon: guessIcon}).addTo(guessMap);
-  document.getElementById('confirmBtn').disabled = false;
-  document.getElementById('guessHint').textContent = 'Marcador colocado. Puedes moverlo tocando otra vez.';
-});
 
 function haversine(lat1, lon1, lat2, lon2){
   const R = 6371;
@@ -406,6 +406,77 @@ function scoreFromDistance(km){
   return Math.max(0, Math.min(5000, s));
 }
 
+// ---- Guess map (OpenStreetMap via CARTO, free, no key) ----
+guessMap = L.map('mapGuess', {worldCopyJump:true}).setView([20,0], 2);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(guessMap);
+
+const actualIcon = L.divIcon({className:'', html:'<div style="background:#2F6B62;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #2F6B62;"></div>', iconSize:[16,16]});
+const guessIcon = L.divIcon({className:'', html:'<div style="background:#B8863B;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #B8863B;"></div>', iconSize:[16,16]});
+
+guessMap.on('click', function(e){
+  if(confirmed) return;
+  if(guessMarker){ guessMap.removeLayer(guessMarker); }
+  guessMarker = L.marker(e.latlng, {icon: guessIcon}).addTo(guessMap);
+  document.getElementById('confirmBtn').disabled = false;
+  document.getElementById('guessHint').textContent = 'Marcador colocado. Puedes moverlo tocando otra vez.';
+});
+
+// ---- Mapillary street-level viewer ----
+// Nota: desde el 16-ene-2026, Mapillary exige que cada bbox de /images
+// tenga un área menor a 0.01 grados cuadrados. Por eso probamos primero
+// una caja chica (~3 km) y luego una un poco más grande (~9 km), y si no
+// hay cobertura saltamos a otro lugar de la lista.
+async function searchMapillaryImage(lat, lon, halfDeg){
+  const bbox = (lon-halfDeg)+','+(lat-halfDeg)+','+(lon+halfDeg)+','+(lat+halfDeg);
+  const url = 'https://graph.mapillary.com/images?fields=id&bbox='+bbox+'&limit=20';
+  const res = await fetch(url, { headers: { Authorization: 'OAuth ' + MAPILLARY_TOKEN } });
+  if(!res.ok) throw new Error('Mapillary API error: ' + res.status);
+  const data = await res.json();
+  return (data && data.data) ? data.data : [];
+}
+
+async function findImageAndStart(){
+  document.getElementById('streetview').innerHTML = '<div class="loading-msg">Buscando una imagen de Mapillary cercana…</div>';
+  for(let tries=0; tries<25; tries++){
+    if(remaining.length === 0){ remaining = shuffle(LOCATIONS); }
+    const candidate = remaining.pop();
+    for(const halfDeg of [0.015, 0.045]){
+      try{
+        const images = await searchMapillaryImage(candidate.lat, candidate.lon, halfDeg);
+        if(images.length > 0){
+          const pick = images[Math.floor(Math.random()*images.length)];
+          current = candidate;
+          showImageInViewer(pick.id);
+          document.getElementById('roundNum').textContent = round + 1;
+          return;
+        }
+      } catch(err){
+        console.warn('Error buscando en Mapillary:', err);
+        document.getElementById('streetview').innerHTML = '<div class="loading-msg">Error al consultar Mapillary. Revisa tu token y tu conexión.</div>';
+        return;
+      }
+    }
+  }
+  document.getElementById('streetview').innerHTML = '<div class="loading-msg">No se encontró cobertura de Mapillary cercana tras varios intentos. Recarga la página para reintentar.</div>';
+}
+
+function showImageInViewer(imageId){
+  if(!viewer){
+    document.getElementById('streetview').innerHTML = '';
+    viewer = new mapillary.Viewer({
+      accessToken: MAPILLARY_TOKEN,
+      container: 'streetview',
+      imageId: imageId
+    });
+  } else {
+    viewer.moveTo(imageId).catch(err => console.warn('No se pudo mover a la imagen:', err));
+  }
+}
+
 function startRound(){
   confirmed = false;
   if(guessMarker){ guessMap.removeLayer(guessMarker); guessMarker = null; }
@@ -414,15 +485,7 @@ function startRound(){
   guessMap.setView([20,0], 2);
   document.getElementById('confirmBtn').disabled = true;
   document.getElementById('guessHint').textContent = 'Coloca un marcador en el mapa de la derecha.';
-
-  if(remaining.length === 0){ remaining = shuffle(LOCATIONS); }
-  current = remaining.pop();
-
-  const jitterLat = (Math.random()-0.5) * 0.01;
-  const jitterLon = (Math.random()-0.5) * 0.01;
-  explorer.setView([current.lat + jitterLat, current.lon + jitterLon], 15);
-
-  document.getElementById('roundNum').textContent = round + 1;
+  findImageAndStart();
 }
 
 document.getElementById('confirmBtn').addEventListener('click', function(){
@@ -473,7 +536,7 @@ function showFinal(){
   const card = document.getElementById('resultCard');
   let list = '<div class="round-list">';
   scores.forEach((s,i)=>{
-    list += `<div><span>${i+1}. ${s.name}</span><span>${Math.round(s.dist)} km · ${s.pts} pts</span></div>`;
+    list += '<div><span>' + (i+1) + '. ' + s.name + '</span><span>' + Math.round(s.dist) + ' km · ' + s.pts + ' pts</span></div>';
   });
   list += '</div>';
 
@@ -483,41 +546,39 @@ function showFinal(){
   else if(totalScore > 9000) rating = 'Viajero avezado';
   else if(totalScore > 4000) rating = 'Explorador en formación';
 
-  card.innerHTML = `
-    <svg class="compass" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>
-      <polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>
-      <circle cx="50" cy="50" r="4" fill="#B8863B"/>
-    </svg>
-    <h2>Partida terminada</h2>
-    <div class="place">${rating}</div>
-    <div class="stat-row">
-      <div class="stat"><span class="num">${totalScore.toLocaleString('es')}</span><span class="lbl">puntos totales</span></div>
-    </div>
-    ${list}
-    <button class="btn-primary" id="restartBtn">Jugar de nuevo</button>
-  `;
+  card.innerHTML =
+    '<svg class="compass" viewBox="0 0 100 100">' +
+    '<circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>' +
+    '<polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>' +
+    '<circle cx="50" cy="50" r="4" fill="#B8863B"/>' +
+    '</svg>' +
+    '<h2>Partida terminada</h2>' +
+    '<div class="place">' + rating + '</div>' +
+    '<div class="stat-row"><div class="stat"><span class="num">' + totalScore.toLocaleString('es') + '</span><span class="lbl">puntos totales</span></div></div>' +
+    list +
+    '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>';
+
   document.getElementById('overlay').classList.add('show');
   document.getElementById('restartBtn').addEventListener('click', function(){
-    round = 0; totalScore = 0; scores = []; remaining = [];
-    document.getElementById('scoreTotal').textContent = '0';
-    document.getElementById('overlay').classList.remove('show');
     location.reload();
   });
 }
 
 window.addEventListener('resize', function(){
-  explorer.invalidateSize();
   guessMap.invalidateSize();
+  if(viewer) viewer.resize();
 });
 
-setTimeout(function(){
-  explorer.invalidateSize();
-  guessMap.invalidateSize();
-  startRound();
-}, 200);
+if(MAPILLARY_TOKEN === "TU_MAPILLARY_TOKEN_AQUI"){
+  document.getElementById('keyWarning').classList.add('show');
+  document.getElementById('streetview').innerHTML = '<div class="loading-msg">Configura tu token de Mapillary en index.html para jugar.</div>';
+} else {
+  setTimeout(function(){
+    guessMap.invalidateSize();
+    startRound();
+  }, 200);
+}
 
-// --- PWA: registro del service worker ---
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(err => {
@@ -526,7 +587,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// --- Instalación (Android/desktop): botón "Instalar" ---
 let deferredPrompt = null;
 const installBtn = document.createElement('button');
 installBtn.textContent = '📲 Instalar app';
