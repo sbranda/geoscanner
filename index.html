@@ -32,6 +32,23 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0; touch-action:pan-x pan-y;}
+
+  body.dark-theme{
+    --ink:#0F1826;
+    --ink-2:#16202E;
+    --parchment:#1E1B18;
+    --parchment-2:#2A2520;
+    --brass:#C9A05C;
+    --brass-dark:#D9AF6C;
+    --teal:#4A9C8C;
+    --charcoal:#EDE4D3;
+    --paper-line: rgba(237,228,211,0.14);
+  }
+  body.dark-theme .panel{ background:#241F1C; }
+  body.dark-theme #streetview .loading-msg{ background:#241F1C; }
+  body.dark-theme .player-name-input{ background:#241F1C; color:var(--charcoal); border-color:var(--paper-line); }
+  body.dark-theme button:disabled{ background:#3a332c !important; color:#7a7166 !important; }
+  body.dark-theme .key-warning{ background:#3a2f14; border-color:#6b5217; color:#e8c776; }
   body{
     background: var(--parchment);
     background-image:
@@ -309,7 +326,7 @@
     color:#fff;
     border-color: var(--brass);
   }
-  #settingsBtn, #muteBtn{
+  #settingsBtn, #muteBtn, #darkModeBtn{
     background: transparent;
     border: 1.5px solid rgba(237,228,211,0.4);
     color: var(--parchment);
@@ -318,7 +335,7 @@
     border-radius:3px;
     cursor:pointer;
   }
-  #settingsBtn:hover, #muteBtn:hover{ border-color: var(--parchment); }
+  #settingsBtn:hover, #muteBtn:hover, #darkModeBtn:hover{ border-color: var(--parchment); }
 
   .player-name-input{
     width:100%;
@@ -469,6 +486,7 @@
     <div>Puntos <span id="scoreTotal">0</span></div>
     <button id="settingsBtn">⚙ Categoría</button>
     <button id="muteBtn">🔊</button>
+    <button id="darkModeBtn">🌙</button>
   </div>
 </header>
 
@@ -1367,6 +1385,26 @@ document.getElementById('muteBtn').addEventListener('click', function(){
 });
 
 updateMuteBtn();
+
+// ---- Modo oscuro ----
+const DARK_MODE_KEY = 'atlasErrante_darkMode';
+let darkModeEnabled = false;
+try{ darkModeEnabled = localStorage.getItem(DARK_MODE_KEY) === 'true'; } catch(e){}
+
+function applyDarkMode(){
+  document.body.classList.toggle('dark-theme', darkModeEnabled);
+  document.getElementById('darkModeBtn').textContent = darkModeEnabled ? '☀️' : '🌙';
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if(themeColorMeta) themeColorMeta.setAttribute('content', darkModeEnabled ? '#0F1826' : '#1B2A4A');
+}
+
+document.getElementById('darkModeBtn').addEventListener('click', function(){
+  darkModeEnabled = !darkModeEnabled;
+  try{ localStorage.setItem(DARK_MODE_KEY, String(darkModeEnabled)); } catch(e){}
+  applyDarkMode();
+});
+
+applyDarkMode();
 
 function compassSVG(){
   return '<svg class="compass" viewBox="0 0 100 100">' +
