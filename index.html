@@ -792,7 +792,17 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
 }).addTo(guessMap);
 
 // ---- Mapa explorador (OpenStreetMap sin etiquetas, vía CARTO) ----
-const explorer = L.map('mapExplorer', {zoomControl:true, attributionControl:true});
+// El zoom se bloquea según la dificultad: sin controles +/-, sin rueda,
+// sin doble clic ni pellizco. Solo se puede recorrer (arrastrar) el mapa.
+const explorer = L.map('mapExplorer', {
+  zoomControl: false,
+  attributionControl: true,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  boxZoom: false,
+  touchZoom: false,
+  keyboard: false
+});
 const explorerTilesPlain = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   subdomains: 'abcd',
@@ -865,7 +875,13 @@ let currentHintPenalty = 0;
 function resetExplorerView(){
   if(explorer.hasLayer(explorerTilesLabeled)) explorer.removeLayer(explorerTilesLabeled);
   if(!explorer.hasLayer(explorerTilesPlain)) explorerTilesPlain.addTo(explorer);
-  if(roundCenter) explorer.setView(roundCenter, roundZoom);
+  if(roundCenter){
+    explorer.setMinZoom(0);
+    explorer.setMaxZoom(19);
+    explorer.setView(roundCenter, roundZoom);
+    explorer.setMinZoom(roundZoom);
+    explorer.setMaxZoom(roundZoom);
+  }
 }
 
 function tierStreets(){
@@ -874,7 +890,12 @@ function tierStreets(){
   return '🛣️ Pista: nombres de calles visibles';
 }
 function tierTerrain(){
-  explorer.setZoom(Math.max(3, roundZoom - 2));
+  const newZoom = Math.max(3, roundZoom - 2);
+  explorer.setMinZoom(0);
+  explorer.setMaxZoom(19);
+  explorer.setZoom(newZoom);
+  explorer.setMinZoom(newZoom);
+  explorer.setMaxZoom(newZoom);
   return '🌊 Pista: se reveló más terreno alrededor (ríos, costas)';
 }
 function tierContinent(){
