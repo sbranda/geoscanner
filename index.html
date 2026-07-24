@@ -19,7 +19,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mapillary-js@4/dist/mapillary.css" />
 
 <style>
   :root{
@@ -147,11 +146,51 @@
     text-transform:uppercase;
     color: var(--brass-dark);
   }
-  #streetview, #mapGuess{
+  #streetview{
+    height: 46vh;
+    min-height:320px;
+    width:100%;
+    background:#111;
+    position:relative;
+  }
+  #mapGuess{
     height: 46vh;
     min-height:320px;
     width:100%;
     background:#dcd3bd;
+  }
+  #svImage{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .sv-nav{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    background:rgba(27,42,74,0.65);
+    color:#fff;
+    border:none;
+    width:40px;
+    height:56px;
+    font-size:1.3rem;
+    cursor:pointer;
+    border-radius:3px;
+  }
+  .sv-nav:hover{ background:rgba(27,42,74,0.9); }
+  #svPrev{ left:8px; }
+  #svNext{ right:8px; }
+  .sv-counter{
+    position:absolute;
+    bottom:8px;
+    right:10px;
+    background:rgba(27,42,74,0.7);
+    color:#fff;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    padding:3px 8px;
+    border-radius:3px;
   }
   #streetview .loading-msg{
     display:flex;
@@ -284,13 +323,18 @@
 </header>
 
 <main>
-  <p class="instructions">Mira alrededor con fotos reales de la comunidad Mapillary — sin nombres, sin letreros — y marca en el mapa de la derecha dónde crees que está.</p>
-  <p class="key-warning" id="keyWarning">⚠ Falta configurar tu token de Mapillary. Edita index.html y reemplaza <code>TU_MAPILLARY_TOKEN_AQUI</code> por tu Client Token real (gratis, sin tarjeta).</p>
+  <p class="instructions">Mira alrededor con fotos reales de la comunidad KartaView — sin nombres, sin letreros — y marca en el mapa de la derecha dónde crees que está.</p>
 
   <div class="board">
     <div class="panel">
       <div class="panel-label"><span class="eyebrow">El lugar</span> Mira alrededor</div>
-      <div id="streetview"><div class="loading-msg">Buscando una imagen de Mapillary cercana…</div></div>
+      <div id="streetview">
+        <div class="loading-msg" id="svLoading">Buscando fotos de KartaView cercanas…</div>
+        <img id="svImage" style="display:none;">
+        <button class="sv-nav" id="svPrev" style="display:none;">‹</button>
+        <button class="sv-nav" id="svNext" style="display:none;">›</button>
+        <div class="sv-counter" id="svCounter" style="display:none;"></div>
+      </div>
     </div>
     <div class="panel">
       <div class="panel-label"><span class="eyebrow">Tu conjetura</span> Toca el mapa para marcar</div>
@@ -322,13 +366,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mapillary-js@4/dist/mapillary.js"></script>
 <script>
-// ======== CONFIGURA TU TOKEN AQUÍ ========
-// Consíguelo gratis en https://www.mapillary.com/dashboard/developers
-const MAPILLARY_TOKEN = "MLY|27900677259567936|100fab079b927da81f9e128c694af293";
-// ==========================================
-
 const LOCATIONS = [
   {name:"Venecia", country:"Italia", lat:45.4408, lon:12.3155},
   {name:"Marrakech", country:"Marruecos", lat:31.6295, lon:-7.9811},
@@ -381,7 +419,6 @@ let current = null;
 let confirmed = false;
 
 let guessMap, guessMarker, resultLine, actualMarker;
-let viewer = null;
 
 function shuffle(arr){
   const a = arr.slice();
@@ -425,64 +462,90 @@ guessMap.on('click', function(e){
   document.getElementById('guessHint').textContent = 'Marcador colocado. Puedes moverlo tocando otra vez.';
 });
 
-// ---- Mapillary street-level viewer ----
-// Nota: desde el 16-ene-2026, Mapillary exige que cada bbox de /images
-// tenga un área menor a 0.01 grados cuadrados. Por eso probamos primero
-// una caja chica (~3 km) y luego una un poco más grande (~9 km), y si no
-// hay cobertura saltamos a otro lugar de la lista.
-async function searchMapillaryImage(lat, lon, halfDeg){
-  const bbox = (lon-halfDeg)+','+(lat-halfDeg)+','+(lon+halfDeg)+','+(lat+halfDeg);
-  const url = 'https://graph.mapillary.com/images?access_token=' + encodeURIComponent(MAPILLARY_TOKEN)
-            + '&fields=id&bbox=' + bbox + '&limit=20';
-  const res = await fetch(url);
+// ---- KartaView street-level photos (open community data, no token needed) ----
+// Usamos el endpoint clásico de la API de KartaView (antes OpenStreetCam),
+// que acepta consultas de lectura sin autenticación.
+let currentPhotos = [];
+let currentPhotoIndex = 0;
+
+function setSvLoading(msg){
+  document.getElementById('svLoading').style.display = 'flex';
+  document.getElementById('svLoading').textContent = msg;
+  document.getElementById('svImage').style.display = 'none';
+  document.getElementById('svPrev').style.display = 'none';
+  document.getElementById('svNext').style.display = 'none';
+  document.getElementById('svCounter').style.display = 'none';
+}
+
+async function fetchNearbyPhotos(lat, lon, radiusMeters){
+  const body = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lon),
+    radius: String(radiusMeters),
+    page: '1',
+    ipp: '20'
+  });
+  const res = await fetch('https://api.openstreetcam.org/1.0/list/nearby-photos/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
   if(!res.ok){
     let detail = '';
     try{ detail = await res.text(); }catch(e){}
     throw new Error('HTTP ' + res.status + ' — ' + detail.slice(0,200));
   }
   const data = await res.json();
-  return (data && data.data) ? data.data : [];
+  return (data && data.currentPageItems) ? data.currentPageItems : [];
 }
 
+function photoUrl(photo){
+  // El campo puede venir como URL completa o ruta relativa según la foto.
+  const raw = photo.name || photo.lth_name || photo.th_name || '';
+  if(!raw) return '';
+  if(raw.startsWith('http')) return raw;
+  return 'https://storage.openstreetcam.org/' + raw.replace(/^\/+/, '');
+}
+
+function showPhotoAt(index){
+  if(!currentPhotos.length) return;
+  currentPhotoIndex = (index + currentPhotos.length) % currentPhotos.length;
+  const img = document.getElementById('svImage');
+  img.src = photoUrl(currentPhotos[currentPhotoIndex]);
+  document.getElementById('svCounter').textContent = (currentPhotoIndex+1) + ' / ' + currentPhotos.length;
+}
+
+document.getElementById('svPrev').addEventListener('click', () => showPhotoAt(currentPhotoIndex - 1));
+document.getElementById('svNext').addEventListener('click', () => showPhotoAt(currentPhotoIndex + 1));
+
 async function findImageAndStart(){
-  document.getElementById('streetview').innerHTML = '<div class="loading-msg">Buscando una imagen de Mapillary cercana…</div>';
+  setSvLoading('Buscando fotos de KartaView cercanas…');
   for(let tries=0; tries<25; tries++){
     if(remaining.length === 0){ remaining = shuffle(LOCATIONS); }
     const candidate = remaining.pop();
-    for(const halfDeg of [0.015, 0.045]){
+    for(const radius of [500, 3000, 15000]){
       try{
-        const images = await searchMapillaryImage(candidate.lat, candidate.lon, halfDeg);
-        if(images.length > 0){
-          const pick = images[Math.floor(Math.random()*images.length)];
+        const photos = await fetchNearbyPhotos(candidate.lat, candidate.lon, radius);
+        if(photos.length > 0){
           current = candidate;
-          showImageInViewer(pick.id);
+          currentPhotos = shuffle(photos).slice(0, 8);
+          document.getElementById('svLoading').style.display = 'none';
+          document.getElementById('svImage').style.display = 'block';
+          document.getElementById('svPrev').style.display = 'block';
+          document.getElementById('svNext').style.display = 'block';
+          document.getElementById('svCounter').style.display = 'block';
+          showPhotoAt(0);
           document.getElementById('roundNum').textContent = round + 1;
           return;
         }
       } catch(err){
-        console.warn('Error buscando en Mapillary:', err);
-        document.getElementById('streetview').innerHTML =
-          '<div class="loading-msg">Error al consultar Mapillary:<br><b>' +
-          (err.message || err) +
-          '</b><br><br>Abre la consola del navegador (F12) para más detalle.</div>';
+        console.warn('Error buscando en KartaView:', err);
+        setSvLoading('Error al consultar KartaView: ' + (err.message || err));
         return;
       }
     }
   }
-  document.getElementById('streetview').innerHTML = '<div class="loading-msg">No se encontró cobertura de Mapillary cercana tras varios intentos. Recarga la página para reintentar.</div>';
-}
-
-function showImageInViewer(imageId){
-  if(!viewer){
-    document.getElementById('streetview').innerHTML = '';
-    viewer = new mapillary.Viewer({
-      accessToken: MAPILLARY_TOKEN,
-      container: 'streetview',
-      imageId: imageId
-    });
-  } else {
-    viewer.moveTo(imageId).catch(err => console.warn('No se pudo mover a la imagen:', err));
-  }
+  setSvLoading('No se encontró cobertura de KartaView cercana tras varios intentos. Recarga la página para reintentar.');
 }
 
 function startRound(){
@@ -574,18 +637,12 @@ function showFinal(){
 
 window.addEventListener('resize', function(){
   guessMap.invalidateSize();
-  if(viewer) viewer.resize();
 });
 
-if(MAPILLARY_TOKEN === "TU_MAPILLARY_TOKEN_AQUI"){
-  document.getElementById('keyWarning').classList.add('show');
-  document.getElementById('streetview').innerHTML = '<div class="loading-msg">Configura tu token de Mapillary en index.html para jugar.</div>';
-} else {
-  setTimeout(function(){
-    guessMap.invalidateSize();
-    startRound();
-  }, 200);
-}
+setTimeout(function(){
+  guessMap.invalidateSize();
+  startRound();
+}, 200);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
