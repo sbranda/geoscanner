@@ -365,6 +365,38 @@
   }
   .leaderboard-row.rank-1{ background: rgba(184,134,59,0.15); border:1px solid var(--brass); }
   .leaderboard-row .rank-num{ font-family:'JetBrains Mono', monospace; font-weight:700; margin-right:10px; }
+
+  .tab-bar{
+    display:flex;
+    gap:2px;
+    margin-bottom:16px;
+    border-bottom:2px solid var(--paper-line);
+  }
+  .tab-btn{
+    flex:1;
+    background:transparent;
+    border:none;
+    padding:10px 2px;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:0.76rem;
+    color:#9c9078;
+    cursor:pointer;
+    border-bottom:3px solid transparent;
+    margin-bottom:-2px;
+    white-space:nowrap;
+  }
+  .tab-btn.active{ color:var(--ink); border-bottom-color:var(--brass); }
+  .tab-panel{ display:none; min-height:180px; }
+  .tab-panel.active{ display:block; }
+  .section-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color:#8a7f6a;
+    margin: 4px 0 8px;
+  }
 </style>
 </head>
 <body>
@@ -414,73 +446,86 @@
       <polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>
       <circle cx="50" cy="50" r="4" fill="#B8863B"/>
     </svg>
-    <h2>Elige una categoría</h2>
-    <div class="place">¿Qué lugares quieres adivinar?</div>
-    <div class="cat-grid" id="categoryGrid">
-      <button class="cat-btn selected" data-cat="todos">🌍 Todos</button>
-      <button class="cat-btn" data-cat="capital">🏛 Solo capitales</button>
-      <button class="cat-btn" data-cat="naturaleza">🏔 Naturaleza/parques</button>
-      <button class="cat-btn" data-cat="continente">📍 Mi continente</button>
-      <button class="cat-btn" data-cat="diario" style="grid-column: span 2;">📅 Desafío diario</button>
-      <button class="cat-btn" data-cat="aleatorio" style="grid-column: span 2;">🎲 Aleatorio total (cualquier punto en tierra)</button>
-    </div>
-    <div class="hint" id="dailyHint" style="display:none; margin-bottom:10px;"></div>
-    <div class="continent-grid" id="continentGrid">
-      <button class="continent-btn" data-continent="Europa">Europa</button>
-      <button class="continent-btn" data-continent="África">África</button>
-      <button class="continent-btn" data-continent="Asia">Asia</button>
-      <button class="continent-btn" data-continent="Oceanía">Oceanía</button>
-      <button class="continent-btn" data-continent="Norteamérica">Norteamérica</button>
-      <button class="continent-btn" data-continent="Sudamérica">Sudamérica</button>
-    </div>
-    <div class="hint" id="catCount" style="margin-bottom:14px;"></div>
+    <h2 style="margin-bottom:14px;">Configura tu partida</h2>
 
-    <div class="hint" style="margin-bottom:6px;">Dificultad (zoom inicial al explorar)</div>
-    <div class="cat-grid" id="difficultyGrid" style="margin-bottom:14px;">
-      <button class="cat-btn" data-difficulty="facil">🟢 Fácil</button>
-      <button class="cat-btn selected" data-difficulty="normal">🟡 Normal</button>
-      <button class="cat-btn" data-difficulty="dificil">🟠 Difícil</button>
-      <button class="cat-btn" data-difficulty="experto">🔴 Experto</button>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="lugar">🌍 Lugar</button>
+      <button class="tab-btn" data-tab="dificultad">🎯 Dificultad</button>
+      <button class="tab-btn" data-tab="pistas">💡 Pistas</button>
+      <button class="tab-btn" data-tab="jugadores">👥 Jugadores</button>
     </div>
 
-    <div class="hint" style="margin-bottom:6px;">Cantidad de rondas</div>
-    <div class="cat-grid" id="roundsGrid" style="margin-bottom:14px;">
-      <button class="cat-btn selected" data-rounds="5">5 rondas</button>
-      <button class="cat-btn" data-rounds="10">10 rondas</button>
-      <button class="cat-btn" data-rounds="20">20 rondas</button>
-      <button class="cat-btn" data-rounds="inf">♾️ Sin límite</button>
+    <div class="tab-panel active" data-panel="lugar">
+      <div class="cat-grid" id="categoryGrid">
+        <button class="cat-btn selected" data-cat="todos">🌍 Todos</button>
+        <button class="cat-btn" data-cat="capital">🏛 Solo capitales</button>
+        <button class="cat-btn" data-cat="naturaleza">🏔 Naturaleza/parques</button>
+        <button class="cat-btn" data-cat="continente">📍 Mi continente</button>
+        <button class="cat-btn" data-cat="diario" style="grid-column: span 2;">📅 Desafío diario</button>
+        <button class="cat-btn" data-cat="aleatorio" style="grid-column: span 2;">🎲 Aleatorio total (cualquier punto en tierra)</button>
+      </div>
+      <div class="hint" id="dailyHint" style="display:none; margin:10px 0;"></div>
+      <div class="continent-grid" id="continentGrid">
+        <button class="continent-btn" data-continent="Europa">Europa</button>
+        <button class="continent-btn" data-continent="África">África</button>
+        <button class="continent-btn" data-continent="Asia">Asia</button>
+        <button class="continent-btn" data-continent="Oceanía">Oceanía</button>
+        <button class="continent-btn" data-continent="Norteamérica">Norteamérica</button>
+        <button class="continent-btn" data-continent="Sudamérica">Sudamérica</button>
+      </div>
+      <div class="hint" id="catCount" style="margin-top:10px;"></div>
     </div>
 
-    <button class="cat-btn" id="hintConfigToggleBtn" style="width:100%; margin-bottom:10px;">⏱ Personalizar tiempos de pista</button>
-    <div id="hintConfigSection" style="display:none; margin-bottom:14px;">
+    <div class="tab-panel" data-panel="dificultad">
+      <div class="section-label">Dificultad (zoom inicial al explorar)</div>
+      <div class="cat-grid" id="difficultyGrid" style="margin-bottom:16px;">
+        <button class="cat-btn" data-difficulty="facil">🟢 Fácil</button>
+        <button class="cat-btn selected" data-difficulty="normal">🟡 Normal</button>
+        <button class="cat-btn" data-difficulty="dificil">🟠 Difícil</button>
+        <button class="cat-btn" data-difficulty="experto">🔴 Experto</button>
+      </div>
+      <div class="section-label">Cantidad de rondas</div>
+      <div class="cat-grid" id="roundsGrid">
+        <button class="cat-btn selected" data-rounds="5">5 rondas</button>
+        <button class="cat-btn" data-rounds="10">10 rondas</button>
+        <button class="cat-btn" data-rounds="20">20 rondas</button>
+        <button class="cat-btn" data-rounds="inf">♾️ Sin límite</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="pistas">
+      <div class="section-label">Tiempos antes de cada pista (segundos)</div>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-        <label class="hint" style="text-align:left;">🛣️ Calles (seg)<br>
+        <label class="hint" style="text-align:left;">🛣️ Calles<br>
           <input type="number" min="5" step="5" id="hintTime_calles" class="player-name-input" value="30">
         </label>
-        <label class="hint" style="text-align:left;">🌊 Terreno (seg)<br>
+        <label class="hint" style="text-align:left;">🌊 Terreno<br>
           <input type="number" min="5" step="5" id="hintTime_terreno" class="player-name-input" value="60">
         </label>
-        <label class="hint" style="text-align:left;">🌍 Continente (seg)<br>
+        <label class="hint" style="text-align:left;">🌍 Continente<br>
           <input type="number" min="5" step="5" id="hintTime_continente" class="player-name-input" value="90">
         </label>
-        <label class="hint" style="text-align:left;">🚩 País (seg)<br>
+        <label class="hint" style="text-align:left;">🚩 País<br>
           <input type="number" min="5" step="5" id="hintTime_pais" class="player-name-input" value="120">
         </label>
       </div>
     </div>
 
-    <button class="cat-btn" id="mpToggleBtn" style="width:100%; margin-bottom:10px;">👥 Multijugador (pasar el celular)</button>
-    <div id="mpPlayersSection" style="display:none; margin-bottom:14px;">
-      <div class="hint" style="margin-bottom:6px;">Cantidad de jugadores</div>
-      <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:12px;">
-        <button class="btn-ghost" id="mpMinus" style="padding:6px 14px;">−</button>
-        <span id="mpCount" style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:1.1rem;">2</span>
-        <button class="btn-ghost" id="mpPlus" style="padding:6px 14px;">+</button>
+    <div class="tab-panel" data-panel="jugadores">
+      <button class="cat-btn" id="mpToggleBtn" style="width:100%; margin-bottom:12px;">👥 Activar multijugador (pasar el celular)</button>
+      <div id="mpPlayersSection" style="display:none;">
+        <div class="section-label">Cantidad de jugadores</div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:12px;">
+          <button class="btn-ghost" id="mpMinus" style="padding:6px 14px;">−</button>
+          <span id="mpCount" style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:1.1rem;">2</span>
+          <button class="btn-ghost" id="mpPlus" style="padding:6px 14px;">+</button>
+        </div>
+        <div id="mpNameInputs"></div>
       </div>
-      <div id="mpNameInputs"></div>
+      <p class="hint" id="mpEmptyHint" style="margin-top:20px;">Modo para un jugador (por defecto). Actívalo arriba si van a jugar varios pasándose el celular.</p>
     </div>
 
-    <button class="btn-primary" id="startGameBtn">Comenzar</button>
+    <button class="btn-primary" id="startGameBtn" style="width:100%; margin-top:16px;">Comenzar</button>
   </div>
 </div>
 
@@ -843,17 +888,21 @@ function renderPlayerInputs(){
   }
 }
 
-document.getElementById('hintConfigToggleBtn').addEventListener('click', function(){
-  const section = document.getElementById('hintConfigSection');
-  const isShown = section.style.display === 'block';
-  section.style.display = isShown ? 'none' : 'block';
-  this.classList.toggle('selected', !isShown);
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    const tab = this.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelector('.tab-panel[data-panel="' + tab + '"]').classList.add('active');
+  });
 });
 
 document.getElementById('mpToggleBtn').addEventListener('click', function(){
   mpEnabled = !mpEnabled;
   this.classList.toggle('selected', mpEnabled);
   document.getElementById('mpPlayersSection').style.display = mpEnabled ? 'block' : 'none';
+  document.getElementById('mpEmptyHint').style.display = mpEnabled ? 'none' : 'block';
   if(mpEnabled) renderPlayerInputs();
 });
 
