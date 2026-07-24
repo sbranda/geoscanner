@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<script type="module" src="https://cdn.jsdelivr.net/npm/@panoramax/web-viewer@5/build/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@panoramax/web-viewer@4/build/index.js"></script>
 <style>
   :root{
     --ink:#1B2A4A;
@@ -395,6 +395,10 @@ async function fetchNearestPanoramaxPhoto(lat, lon){
 }
 
 function showPanorama(sequenceId, pictureId){
+  if(!customElements.get('pnx-photo-viewer')){
+    setSvLoading('El visor de Panoramax no cargó (revisa tu conexión o la consola del navegador). Recarga la página para reintentar.');
+    return;
+  }
   document.getElementById('streetview').innerHTML =
     '<pnx-photo-viewer endpoint="https://api.panoramax.xyz/api" sequence="' + sequenceId + '" picture="' + pictureId + '"></pnx-photo-viewer>';
 }
