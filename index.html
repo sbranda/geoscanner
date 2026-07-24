@@ -422,6 +422,7 @@
       <button class="cat-btn" data-cat="naturaleza">🏔 Naturaleza/parques</button>
       <button class="cat-btn" data-cat="continente">📍 Mi continente</button>
       <button class="cat-btn" data-cat="diario" style="grid-column: span 2;">📅 Desafío diario</button>
+      <button class="cat-btn" data-cat="aleatorio" style="grid-column: span 2;">🎲 Aleatorio total (cualquier punto en tierra)</button>
     </div>
     <div class="hint" id="dailyHint" style="display:none; margin-bottom:10px;"></div>
     <div class="continent-grid" id="continentGrid">
@@ -621,6 +622,130 @@ let roundGuesses = [];
 const DIFFICULTY_ZOOM = { facil: 17, normal: 15, dificil: 13, experto: 11 };
 let selectedDifficulty = 'normal';
 
+// ---- Modo "Aleatorio total": cualquier punto de tierra del mundo ----
+let worldCountries = null;
+const worldCountriesReady = fetch('world-countries.json')
+  .then(r => r.json())
+  .then(data => {
+    worldCountries = data.features.filter(f =>
+      f.properties.continent !== 'Antarctica' &&
+      f.properties.continent !== 'Seven seas (open ocean)'
+    );
+  })
+  .catch(err => {
+    console.warn('No se pudo cargar world-countries.json:', err);
+    worldCountries = [];
+  });
+
+const CONTINENT_ES = {
+  'Africa':'África', 'Asia':'Asia', 'Europe':'Europa',
+  'North America':'Norteamérica', 'Oceania':'Oceanía', 'South America':'Sudamérica'
+};
+
+const COUNTRY_ES = {
+  'United States of America':'Estados Unidos', 'United Kingdom':'Reino Unido',
+  'Spain':'España', 'Germany':'Alemania', 'France':'Francia', 'Italy':'Italia',
+  'Mexico':'México', 'Brazil':'Brasil', 'Japan':'Japón', 'Russia':'Rusia',
+  'Egypt':'Egipto', 'South Africa':'Sudáfrica', 'South Korea':'Corea del Sur',
+  'North Korea':'Corea del Norte', 'Netherlands':'Países Bajos', 'Switzerland':'Suiza',
+  'Sweden':'Suecia', 'Norway':'Noruega', 'Denmark':'Dinamarca', 'Finland':'Finlandia',
+  'Poland':'Polonia', 'Greece':'Grecia', 'Turkey':'Turquía', 'Austria':'Austria',
+  'Belgium':'Bélgica', 'Portugal':'Portugal', 'Ireland':'Irlanda', 'Iceland':'Islandia',
+  'Czechia':'República Checa', 'Slovakia':'Eslovaquia', 'Hungary':'Hungría',
+  'Romania':'Rumania', 'Bulgaria':'Bulgaria', 'Croatia':'Croacia', 'Serbia':'Serbia',
+  'Ukraine':'Ucrania', 'Belarus':'Bielorrusia', 'Estonia':'Estonia', 'Latvia':'Letonia',
+  'Lithuania':'Lituania', 'Slovenia':'Eslovenia', 'Bosnia and Herzegovina':'Bosnia y Herzegovina',
+  'Albania':'Albania', 'North Macedonia':'Macedonia del Norte', 'Montenegro':'Montenegro',
+  'Morocco':'Marruecos', 'Algeria':'Argelia', 'Tunisia':'Túnez', 'Libya':'Libia',
+  'Sudan':'Sudán', 'Ethiopia':'Etiopía', 'Kenya':'Kenia', 'Tanzania':'Tanzania',
+  'Nigeria':'Nigeria', 'Ghana':'Ghana', 'Senegal':'Senegal', 'Mali':'Malí',
+  'Democratic Republic of the Congo':'República Democrática del Congo',
+  'Republic of Congo':'República del Congo', 'Angola':'Angola', 'Zambia':'Zambia',
+  'Zimbabwe':'Zimbabue', 'Botswana':'Botsuana', 'Namibia':'Namibia',
+  'Mozambique':'Mozambique', 'Madagascar':'Madagascar', 'Somalia':'Somalia',
+  'Uganda':'Uganda', 'Chad':'Chad', 'Niger':'Níger', 'Cameroon':'Camerún',
+  'China':'China', 'India':'India', 'Indonesia':'Indonesia', 'Pakistan':'Pakistán',
+  'Bangladesh':'Bangladés', 'Vietnam':'Vietnam', 'Thailand':'Tailandia',
+  'Myanmar':'Myanmar', 'Malaysia':'Malasia', 'Philippines':'Filipinas',
+  'Saudi Arabia':'Arabia Saudita', 'Iran':'Irán', 'Iraq':'Irak', 'Israel':'Israel',
+  'Jordan':'Jordania', 'Syria':'Siria', 'Yemen':'Yemen', 'Afghanistan':'Afganistán',
+  'Kazakhstan':'Kazajistán', 'Uzbekistan':'Uzbekistán', 'Mongolia':'Mongolia',
+  'Nepal':'Nepal', 'Sri Lanka':'Sri Lanka', 'Cambodia':'Camboya', 'Laos':'Laos',
+  'United Arab Emirates':'Emiratos Árabes Unidos', 'Qatar':'Catar', 'Kuwait':'Kuwait',
+  'Oman':'Omán', 'Lebanon':'Líbano', 'Azerbaijan':'Azerbaiyán', 'Armenia':'Armenia',
+  'Georgia':'Georgia', 'Canada':'Canadá', 'Guatemala':'Guatemala', 'Cuba':'Cuba',
+  'Honduras':'Honduras', 'Nicaragua':'Nicaragua', 'Costa Rica':'Costa Rica',
+  'Panama':'Panamá', 'Colombia':'Colombia', 'Venezuela':'Venezuela', 'Ecuador':'Ecuador',
+  'Peru':'Perú', 'Bolivia':'Bolivia', 'Chile':'Chile', 'Argentina':'Argentina',
+  'Uruguay':'Uruguay', 'Paraguay':'Paraguay', 'Guyana':'Guyana', 'Suriname':'Surinam',
+  'Australia':'Australia', 'New Zealand':'Nueva Zelanda', 'Papua New Guinea':'Papúa Nueva Guinea',
+  'Fiji':'Fiyi', 'Dominican Republic':'República Dominicana', 'Haiti':'Haití',
+  'Jamaica':'Jamaica', 'Trinidad and Tobago':'Trinidad y Tobago', 'Belize':'Belice',
+  'El Salvador':'El Salvador', 'Taiwan':'Taiwán', 'Singapore':'Singapur',
+  'New Caledonia':'Nueva Caledonia', 'Western Sahara':'Sahara Occidental',
+  'South Sudan':'Sudán del Sur', 'Ivory Coast':'Costa de Marfil', 'Guinea':'Guinea',
+  'Burkina Faso':'Burkina Faso', 'Sierra Leone':'Sierra Leona', 'Liberia':'Liberia',
+  'Central African Republic':'República Centroafricana', 'Gabon':'Gabón',
+  'Eritrea':'Eritrea', 'Djibouti':'Yibuti', 'Malawi':'Malaui', 'Lesotho':'Lesoto',
+  'Eswatini':'Esuatini', 'Rwanda':'Ruanda', 'Burundi':'Burundi', 'Cyprus':'Chipre',
+  'Malta':'Malta', 'Luxembourg':'Luxemburgo', 'Moldova':'Moldavia',
+  'Kyrgyzstan':'Kirguistán', 'Tajikistan':'Tayikistán', 'Turkmenistan':'Turkmenistán',
+  'Bhutan':'Bután', 'Brunei':'Brunéi', 'Timor-Leste':'Timor Oriental',
+  'Solomon Islands':'Islas Salomón', 'Vanuatu':'Vanuatu', 'Greenland':'Groenlandia'
+};
+
+function translateCountry(name){ return COUNTRY_ES[name] || name; }
+function translateContinent(name){ return CONTINENT_ES[name] || name; }
+
+function pointInRing(pt, ring){
+  let inside = false;
+  for(let i=0, j=ring.length-1; i<ring.length; j=i++){
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const intersect = ((yi > pt[1]) !== (yj > pt[1])) &&
+      (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+    if(intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInPolygon(pt, polygon){
+  if(!pointInRing(pt, polygon[0])) return false;
+  for(let k=1; k<polygon.length; k++){
+    if(pointInRing(pt, polygon[k])) return false;
+  }
+  return true;
+}
+
+function findCountryForPoint(lon, lat){
+  for(const f of worldCountries){
+    const geom = f.geometry;
+    if(geom.type === 'Polygon'){
+      if(pointInPolygon([lon,lat], geom.coordinates)) return f;
+    } else if(geom.type === 'MultiPolygon'){
+      if(geom.coordinates.some(poly => pointInPolygon([lon,lat], poly))) return f;
+    }
+  }
+  return null;
+}
+
+function randomLandPoint(rng, maxTries){
+  for(let i=0; i<maxTries; i++){
+    const lat = Math.asin((rng()*2)-1) * 180/Math.PI;
+    const lon = rng()*360 - 180;
+    const feature = findCountryForPoint(lon, lat);
+    if(feature){
+      return {
+        lat, lon,
+        name: '',
+        country: translateCountry(feature.properties.name),
+        continent: translateContinent(feature.properties.continent)
+      };
+    }
+  }
+  return null;
+}
+
 function computePool(){
   if(selectedCategory === 'todos' || selectedCategory === 'diario') return LOCATIONS;
   if(selectedCategory === 'capital') return LOCATIONS.filter(l => l.tags.includes('capital'));
@@ -630,8 +755,13 @@ function computePool(){
 }
 
 function updateCatCount(){
-  const p = computePool();
   const countEl = document.getElementById('catCount');
+  if(selectedCategory === 'aleatorio'){
+    countEl.textContent = '🎲 Cualquier punto de tierra del planeta — sin límite, generado al azar';
+    document.getElementById('startGameBtn').disabled = false;
+    return;
+  }
+  const p = computePool();
   if(selectedCategory === 'continente' && !selectedContinent){
     countEl.textContent = 'Elige un continente arriba';
   } else {
@@ -963,21 +1093,34 @@ function scheduleHints(){
   });
 }
 
-function startRound(){
+async function startRound(){
   currentPlayerIdx = 0;
   roundGuesses = new Array(players.length).fill(null);
 
   const rng = isDailyMode ? dailyRng : Math.random;
-  if(remaining.length === 0){
-    remaining = isDailyMode ? shuffleSeeded(pool.length ? pool : LOCATIONS, dailyRng) : shuffle(pool.length ? pool : LOCATIONS);
+
+  if(selectedCategory === 'aleatorio'){
+    document.getElementById('roundNum').textContent = round + 1;
+    await worldCountriesReady;
+    current = randomLandPoint(rng, 300);
+    if(!current){
+      // Salvaguarda extrema: si por algún motivo no se encontró tierra
+      // (no debería pasar), usamos un lugar de la lista curada.
+      if(remaining.length === 0){ remaining = shuffle(LOCATIONS); }
+      current = remaining.pop();
+    }
+    roundCenter = [current.lat, current.lon];
+  } else {
+    if(remaining.length === 0){
+      remaining = isDailyMode ? shuffleSeeded(pool.length ? pool : LOCATIONS, dailyRng) : shuffle(pool.length ? pool : LOCATIONS);
+    }
+    current = remaining.pop();
+    const jitterLat = (rng()-0.5) * 0.01;
+    const jitterLon = (rng()-0.5) * 0.01;
+    roundCenter = [current.lat + jitterLat, current.lon + jitterLon];
   }
-  current = remaining.pop();
 
-  const jitterLat = (rng()-0.5) * 0.01;
-  const jitterLon = (rng()-0.5) * 0.01;
-  roundCenter = [current.lat + jitterLat, current.lon + jitterLon];
   roundZoom = DIFFICULTY_ZOOM[selectedDifficulty] || 15;
-
   document.getElementById('roundNum').textContent = round + 1;
 
   beginTurn();
@@ -1072,7 +1215,7 @@ function revealRound(){
   const card = document.getElementById('resultCard');
   card.innerHTML = compassSVG() +
     '<h2>Ronda revelada</h2>' +
-    '<div class="place">' + escapeHtml(current.name) + ', ' + escapeHtml(current.country) + '</div>' +
+    '<div class="place">' + (current.name ? (escapeHtml(current.name) + ', ' + escapeHtml(current.country)) : escapeHtml(current.country)) + '</div>' +
     '<div style="margin:14px 0;">' + rowsHtml + '</div>' +
     '<button class="btn-primary" id="nextBtn">Siguiente ronda</button>';
 
