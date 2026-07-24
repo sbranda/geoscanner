@@ -443,6 +443,14 @@
       <button class="cat-btn" data-difficulty="experto">🔴 Experto</button>
     </div>
 
+    <div class="hint" style="margin-bottom:6px;">Cantidad de rondas</div>
+    <div class="cat-grid" id="roundsGrid" style="margin-bottom:14px;">
+      <button class="cat-btn selected" data-rounds="5">5 rondas</button>
+      <button class="cat-btn" data-rounds="10">10 rondas</button>
+      <button class="cat-btn" data-rounds="20">20 rondas</button>
+      <button class="cat-btn" data-rounds="inf">♾️ Sin límite</button>
+    </div>
+
     <button class="cat-btn" id="hintConfigToggleBtn" style="width:100%; margin-bottom:10px;">⏱ Personalizar tiempos de pista</button>
     <div id="hintConfigSection" style="display:none; margin-bottom:14px;">
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
@@ -601,7 +609,6 @@ const LOCATIONS = [
   {name:"Mendoza", country:"Argentina", lat:-32.8895, lon:-68.8458, continent:"Sudamérica", tags:[]}
 ];
 
-const TOTAL_ROUNDS = 5;
 let remaining = [];
 let round = 0;
 let current = null;
@@ -621,6 +628,8 @@ let roundGuesses = [];
 
 const DIFFICULTY_ZOOM = { facil: 17, normal: 15, dificil: 13, experto: 11 };
 let selectedDifficulty = 'normal';
+let selectedRounds = 5;
+let totalRoundsTarget = 5;
 
 // ---- Modo "Aleatorio total": cualquier punto de tierra del mundo ----
 let worldCountries = null;
@@ -803,6 +812,14 @@ document.querySelectorAll('.continent-btn').forEach(btn => {
   });
 });
 
+document.querySelectorAll('#roundsGrid .cat-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('#roundsGrid .cat-btn').forEach(b => b.classList.remove('selected'));
+    this.classList.add('selected');
+    selectedRounds = this.dataset.rounds === 'inf' ? 'inf' : parseInt(this.dataset.rounds, 10);
+  });
+});
+
 document.querySelectorAll('#difficultyGrid .cat-btn').forEach(btn => {
   btn.addEventListener('click', function(){
     document.querySelectorAll('#difficultyGrid .cat-btn').forEach(b => b.classList.remove('selected'));
@@ -870,6 +887,9 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
   }
 
   document.getElementById('turnIndicator').style.display = mpEnabled ? 'inline-block' : 'none';
+
+  totalRoundsTarget = selectedRounds === 'inf' ? Infinity : selectedRounds;
+  document.getElementById('roundTotal').textContent = selectedRounds === 'inf' ? '∞' : selectedRounds;
 
   round = 0; remaining = [];
   startRound();
@@ -1217,7 +1237,8 @@ function revealRound(){
     '<h2>Ronda revelada</h2>' +
     '<div class="place">' + (current.name ? (escapeHtml(current.name) + ', ' + escapeHtml(current.country)) : escapeHtml(current.country)) + '</div>' +
     '<div style="margin:14px 0;">' + rowsHtml + '</div>' +
-    '<button class="btn-primary" id="nextBtn">Siguiente ronda</button>';
+    '<button class="btn-primary" id="nextBtn">Siguiente ronda</button>' +
+    (totalRoundsTarget === Infinity ? '<div style="margin-top:10px;"><button class="btn-ghost" id="finishNowBtn">Terminar partida ahora</button></div>' : '');
 
   document.getElementById('overlay').classList.add('show');
   updateScoreHud();
@@ -1225,12 +1246,20 @@ function revealRound(){
   document.getElementById('nextBtn').addEventListener('click', function(){
     document.getElementById('overlay').classList.remove('show');
     round++;
-    if(round >= TOTAL_ROUNDS){
+    if(round >= totalRoundsTarget){
       showFinal();
     } else {
       startRound();
     }
   });
+
+  const finishBtn = document.getElementById('finishNowBtn');
+  if(finishBtn){
+    finishBtn.addEventListener('click', function(){
+      document.getElementById('overlay').classList.remove('show');
+      showFinal();
+    });
+  }
 }
 
 function ratingFor(total){
