@@ -1,25 +1,7 @@
 # Atlas Errante — PWA
 
-Juego de adivinar lugares del mundo. Explora con fotos 360° reales de
-**Panoramax** (proyecto abierto del instituto geográfico francés IGN y la
-comunidad OpenStreetMap) y adivina en un mapa de **OpenStreetMap**.
-
-## Sobre Panoramax
-
-No necesitas cuenta, token ni tarjeta. Se usa la API pública de
-búsqueda de Panoramax (`api.panoramax.xyz/api/search`), que es una
-federación de servidores STAC abiertos, y su visor oficial embebible
-(`@panoramax/web-viewer`) para mostrar las fotos 360° con la misma
-sensación de "mirar alrededor" que Street View.
-
-## Cobertura
-
-Panoramax tiene su cobertura más fuerte en **Francia** y va creciendo en
-el resto de Europa Occidental (Bélgica, Países Bajos, Reino Unido,
-Italia, España, Alemania...). Por eso la lista de ciudades del juego
-está centrada en esa región. El juego busca la foto 360° más cercana a
-cada ciudad; si la más cercana está a más de 120 km (poca cobertura en
-esa zona), prueba automáticamente con otra ciudad de la lista.
+Juego de adivinar lugares del mundo usando mapas de OpenStreetMap.
+100% gratuito y sin necesidad de ninguna clave, token o cuenta.
 
 ## Por qué necesitas subir esto a un servidor
 
@@ -52,6 +34,8 @@ Con Node instalado:
 npx serve atlas-pwa
 ```
 Luego abre la URL local que te muestre (ej. http://localhost:3000).
+No funcionará como instalable en `localhost` desde el celular, pero sí
+en desktop Chrome (localhost cuenta como origen seguro).
 
 ## Instalar en el celular
 
