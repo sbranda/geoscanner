@@ -1082,7 +1082,8 @@ function computePool(){
 function updateCatCount(){
   const countEl = document.getElementById('catCount');
   if(selectedCategory === 'aleatorio'){
-    countEl.textContent = '🎲 Cualquier punto de tierra del planeta — sin límite, generado al azar';
+    const countryCount = worldCountries ? worldCountries.length : '~175';
+    countEl.textContent = '🎲 Cualquier punto de tierra en ' + countryCount + ' países/territorios reales — sin límite, generado al azar';
     document.getElementById('startGameBtn').disabled = false;
     return;
   }
@@ -1090,7 +1091,7 @@ function updateCatCount(){
   if(selectedCategory === 'continente' && !selectedContinent){
     countEl.textContent = 'Elige un continente arriba';
   } else {
-    countEl.textContent = p.length + ' lugares en esta categoría';
+    countEl.textContent = p.length + ' lugares curados en esta categoría (algunos países se repiten)';
   }
   document.getElementById('startGameBtn').disabled = (selectedCategory === 'continente' && !selectedContinent) || p.length === 0;
 }
