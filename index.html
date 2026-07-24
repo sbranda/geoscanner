@@ -446,7 +446,8 @@
       <polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>
       <circle cx="50" cy="50" r="4" fill="#B8863B"/>
     </svg>
-    <h2 style="margin-bottom:14px;">Configura tu partida</h2>
+    <h2 style="margin-bottom:4px;">Configura tu partida</h2>
+    <div class="hint" id="highScoreDisplay" style="margin-bottom:14px; font-weight:600;"></div>
 
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="lugar">🌍 Lugar</button>
@@ -675,6 +676,31 @@ const DIFFICULTY_ZOOM = { facil: 17, normal: 15, dificil: 13, experto: 11 };
 let selectedDifficulty = 'normal';
 let selectedRounds = 5;
 let totalRoundsTarget = 5;
+
+// ---- Puntaje máximo histórico (localStorage) ----
+const HIGH_SCORE_KEY = 'atlasErrante_highScore';
+
+function getHighScore(){
+  try{
+    return parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0', 10) || 0;
+  } catch(e){
+    return 0;
+  }
+}
+
+function setHighScore(value){
+  try{
+    localStorage.setItem(HIGH_SCORE_KEY, String(value));
+  } catch(e){
+    console.warn('No se pudo guardar el puntaje máximo:', e);
+  }
+}
+
+function renderHighScoreDisplay(){
+  const hs = getHighScore();
+  const el = document.getElementById('highScoreDisplay');
+  el.textContent = hs > 0 ? ('🏆 Mejor puntaje: ' + hs.toLocaleString('es') + ' pts') : '';
+}
 
 // ---- Modo "Aleatorio total": cualquier punto de tierra del mundo ----
 let worldCountries = null;
@@ -948,9 +974,11 @@ document.getElementById('settingsBtn').addEventListener('click', function(){
   clearHints();
   document.getElementById('catOverlay').classList.add('show');
   updateCatCount();
+  renderHighScoreDisplay();
 });
 
 updateCatCount();
+renderHighScoreDisplay();
 
 function shuffle(arr){
   const a = arr.slice();
@@ -1323,6 +1351,10 @@ function showFinal(){
   const card = document.getElementById('resultCard');
   const sorted = [...players].sort((a,b) => b.total - a.total);
 
+  const previousHighScore = getHighScore();
+  const isNewRecord = sorted[0].total > previousHighScore;
+  if(isNewRecord){ setHighScore(sorted[0].total); }
+
   let rowsHtml = '';
   sorted.forEach((p, idx) => {
     const medal = idx===0 ? '🥇 ' : idx===1 ? '🥈 ' : idx===2 ? '🥉 ' : '';
@@ -1335,9 +1367,14 @@ function showFinal(){
     ? ('🏆 ' + escapeHtml(sorted[0].name) + ' gana la partida')
     : ratingFor(sorted[0].total);
 
+  const recordBanner = isNewRecord
+    ? '<div style="background:rgba(184,134,59,0.15); border:1px solid var(--brass); border-radius:4px; padding:8px 12px; margin-bottom:12px; font-weight:700; color:var(--brass-dark);">🏆 ¡Nuevo récord histórico!</div>'
+    : '<div class="hint" style="margin-bottom:12px;">Mejor puntaje histórico: ' + Math.max(previousHighScore, sorted[0].total).toLocaleString('es') + ' pts</div>';
+
   card.innerHTML = compassSVG() +
     '<h2>Partida terminada</h2>' +
     '<div class="place">' + subtitle + '</div>' +
+    recordBanner +
     '<div style="margin:16px 0;">' + rowsHtml + '</div>' +
     '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>';
 
