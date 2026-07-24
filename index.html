@@ -397,6 +397,32 @@
     color:#8a7f6a;
     margin: 4px 0 8px;
   }
+  .history-row{
+    padding:10px 12px;
+    border-radius:3px;
+    margin-bottom:8px;
+    background: rgba(184,134,59,0.06);
+    border-left:3px solid var(--brass);
+  }
+  .history-row .h-top{
+    display:flex;
+    justify-content:space-between;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    color:#8a7f6a;
+    margin-bottom:4px;
+  }
+  .history-row .h-main{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:0.88rem;
+  }
+  .history-row .h-score{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    color:var(--brass-dark);
+  }
 </style>
 </head>
 <body>
@@ -454,6 +480,7 @@
       <button class="tab-btn" data-tab="dificultad">🎯 Dificultad</button>
       <button class="tab-btn" data-tab="pistas">💡 Pistas</button>
       <button class="tab-btn" data-tab="jugadores">👥 Jugadores</button>
+      <button class="tab-btn" data-tab="historial">📜 Historial</button>
     </div>
 
     <div class="tab-panel active" data-panel="lugar">
@@ -524,6 +551,11 @@
         <div id="mpNameInputs"></div>
       </div>
       <p class="hint" id="mpEmptyHint" style="margin-top:20px;">Modo para un jugador (por defecto). Actívalo arriba si van a jugar varios pasándose el celular.</p>
+    </div>
+
+    <div class="tab-panel" data-panel="historial">
+      <div id="historyList" style="text-align:left;"></div>
+      <button class="btn-ghost" id="clearHistoryBtn" style="margin-top:10px; font-size:0.78rem; padding:6px 12px;">Borrar historial</button>
     </div>
 
     <button class="btn-primary" id="startGameBtn" style="width:100%; margin-top:16px;">Comenzar</button>
@@ -700,6 +732,64 @@ function renderHighScoreDisplay(){
   const hs = getHighScore();
   const el = document.getElementById('highScoreDisplay');
   el.textContent = hs > 0 ? ('🏆 Mejor puntaje: ' + hs.toLocaleString('es') + ' pts') : '';
+}
+
+// ---- Historial de partidas (localStorage) ----
+const HISTORY_KEY = 'atlasErrante_history';
+const MAX_HISTORY = 20;
+
+const CATEGORY_LABELS = {
+  todos: '🌍 Todos',
+  capital: '🏛 Capitales',
+  naturaleza: '🏔 Naturaleza',
+  continente: '📍 Continente',
+  diario: '📅 Desafío diario',
+  aleatorio: '🎲 Aleatorio total'
+};
+
+function getHistory(){
+  try{
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch(e){
+    return [];
+  }
+}
+
+function saveHistoryEntry(entry){
+  try{
+    const h = getHistory();
+    h.unshift(entry);
+    if(h.length > MAX_HISTORY) h.length = MAX_HISTORY;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  } catch(e){
+    console.warn('No se pudo guardar el historial:', e);
+  }
+}
+
+function clearHistory(){
+  try{ localStorage.removeItem(HISTORY_KEY); } catch(e){}
+  renderHistoryList();
+}
+
+function renderHistoryList(){
+  const container = document.getElementById('historyList');
+  const history = getHistory();
+  if(history.length === 0){
+    container.innerHTML = '<p class="hint">Todavía no jugaste ninguna partida.</p>';
+    return;
+  }
+  container.innerHTML = history.map(entry => {
+    const catLabel = CATEGORY_LABELS[entry.category] || entry.category;
+    const dateLabel = new Date(entry.date).toLocaleDateString('es', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+    const scoreLabel = entry.players.length > 1
+      ? ('🏆 ' + escapeHtml(entry.winner) + ' — ' + entry.topScore.toLocaleString('es') + ' pts')
+      : (entry.topScore.toLocaleString('es') + ' pts');
+    return '<div class="history-row">' +
+      '<div class="h-top"><span>' + dateLabel + '</span><span>' + entry.rounds + ' rondas</span></div>' +
+      '<div class="h-main"><span>' + catLabel + (entry.players.length > 1 ? ' · 👥 ' + entry.players.length : '') + '</span>' +
+      '<span class="h-score">' + scoreLabel + '</span></div>' +
+      '</div>';
+  }).join('');
 }
 
 // ---- Modo "Aleatorio total": cualquier punto de tierra del mundo ----
@@ -970,15 +1060,21 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
   startRound();
 });
 
+document.getElementById('clearHistoryBtn').addEventListener('click', function(){
+  clearHistory();
+});
+
 document.getElementById('settingsBtn').addEventListener('click', function(){
   clearHints();
   document.getElementById('catOverlay').classList.add('show');
   updateCatCount();
   renderHighScoreDisplay();
+  renderHistoryList();
 });
 
 updateCatCount();
 renderHighScoreDisplay();
+renderHistoryList();
 
 function shuffle(arr){
   const a = arr.slice();
@@ -1354,6 +1450,15 @@ function showFinal(){
   const previousHighScore = getHighScore();
   const isNewRecord = sorted[0].total > previousHighScore;
   if(isNewRecord){ setHighScore(sorted[0].total); }
+
+  saveHistoryEntry({
+    date: new Date().toISOString(),
+    category: selectedCategory,
+    rounds: round,
+    players: players.map(p => ({name: p.name, total: p.total})),
+    winner: sorted[0].name,
+    topScore: sorted[0].total
+  });
 
   let rowsHtml = '';
   sorted.forEach((p, idx) => {
