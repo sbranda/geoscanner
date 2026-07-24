@@ -192,6 +192,16 @@
     padding:20px;
   }
   #overlay.show{ display:flex; }
+  #catOverlay{
+    position:fixed; inset:0;
+    background: rgba(27,42,74,0.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    padding:20px;
+  }
+  #catOverlay.show{ display:flex; }
   .card{
     background: var(--parchment);
     border: 1px solid var(--brass);
@@ -245,6 +255,66 @@
   .round-list div{ display:flex; justify-content:space-between; padding:3px 0; }
 
   .leaflet-container{ font-family:'Inter', sans-serif; }
+
+  /* Category picker */
+  .cat-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:10px;
+    margin: 16px 0;
+  }
+  .cat-btn{
+    background:#fff;
+    border: 1.5px solid var(--paper-line);
+    border-radius:4px;
+    padding: 14px 10px;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:0.88rem;
+    color: var(--ink);
+    cursor:pointer;
+    transition: all 0.15s ease;
+  }
+  .cat-btn:hover{ border-color: var(--brass); }
+  .cat-btn.selected{
+    background: var(--ink);
+    color: var(--parchment);
+    border-color: var(--ink);
+  }
+  .continent-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:8px;
+    margin: 10px 0 16px;
+    display:none;
+  }
+  .continent-grid.show{ display:grid; }
+  .continent-btn{
+    background: var(--parchment-2);
+    border: 1.5px solid var(--paper-line);
+    border-radius:4px;
+    padding: 10px;
+    font-family:'Inter', sans-serif;
+    font-size:0.82rem;
+    font-weight:600;
+    color: var(--ink);
+    cursor:pointer;
+  }
+  .continent-btn.selected{
+    background: var(--brass);
+    color:#fff;
+    border-color: var(--brass);
+  }
+  #settingsBtn{
+    background: transparent;
+    border: 1.5px solid rgba(237,228,211,0.4);
+    color: var(--parchment);
+    font-size:0.78rem;
+    padding: 5px 10px;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  #settingsBtn:hover{ border-color: var(--parchment); }
 </style>
 </head>
 <body>
@@ -254,6 +324,7 @@
   <div class="hud">
     <div>Ronda <span id="roundNum">1</span>/<span id="roundTotal">5</span></div>
     <div>Puntos <span id="scoreTotal">0</span></div>
+    <button id="settingsBtn">⚙ Categoría</button>
   </div>
 </header>
 
@@ -294,119 +365,147 @@
   </div>
 </div>
 
+<div id="catOverlay" class="show">
+  <div class="card" id="catCard">
+    <svg class="compass" viewBox="0 0 100 100" style="margin-bottom:6px;">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>
+      <polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>
+      <circle cx="50" cy="50" r="4" fill="#B8863B"/>
+    </svg>
+    <h2>Elige una categoría</h2>
+    <div class="place">¿Qué lugares quieres adivinar?</div>
+    <div class="cat-grid">
+      <button class="cat-btn selected" data-cat="todos">🌍 Todos</button>
+      <button class="cat-btn" data-cat="capital">🏛 Solo capitales</button>
+      <button class="cat-btn" data-cat="naturaleza">🏔 Naturaleza/parques</button>
+      <button class="cat-btn" data-cat="continente">📍 Mi continente</button>
+    </div>
+    <div class="continent-grid" id="continentGrid">
+      <button class="continent-btn" data-continent="Europa">Europa</button>
+      <button class="continent-btn" data-continent="África">África</button>
+      <button class="continent-btn" data-continent="Asia">Asia</button>
+      <button class="continent-btn" data-continent="Oceanía">Oceanía</button>
+      <button class="continent-btn" data-continent="Norteamérica">Norteamérica</button>
+      <button class="continent-btn" data-continent="Sudamérica">Sudamérica</button>
+    </div>
+    <div class="hint" id="catCount" style="margin-bottom:14px;"></div>
+    <button class="btn-primary" id="startGameBtn">Comenzar</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const LOCATIONS = [
   // --- Europa ---
-  {name:"Venecia", country:"Italia", lat:45.4408, lon:12.3155},
-  {name:"Praga", country:"República Checa", lat:50.0755, lon:14.4378},
-  {name:"Reikiavik", country:"Islandia", lat:64.1466, lon:-21.9426},
-  {name:"Santorini", country:"Grecia", lat:36.3932, lon:25.4615},
-  {name:"Dubrovnik", country:"Croacia", lat:42.6507, lon:18.0944},
-  {name:"Brujas", country:"Bélgica", lat:51.2093, lon:3.2247},
-  {name:"Hallstatt", country:"Austria", lat:47.5622, lon:13.6493},
-  {name:"Edimburgo", country:"Reino Unido", lat:55.9533, lon:-3.1883},
-  {name:"Lisboa", country:"Portugal", lat:38.7223, lon:-9.1393},
-  {name:"Oporto", country:"Portugal", lat:41.1579, lon:-8.6291},
-  {name:"Barcelona", country:"España", lat:41.3874, lon:2.1686},
-  {name:"Sevilla", country:"España", lat:37.3891, lon:-5.9845},
-  {name:"Ámsterdam", country:"Países Bajos", lat:52.3676, lon:4.9041},
-  {name:"Copenhague", country:"Dinamarca", lat:55.6761, lon:12.5683},
-  {name:"Budapest", country:"Hungría", lat:47.4979, lon:19.0402},
-  {name:"Viena", country:"Austria", lat:48.2082, lon:16.3738},
-  {name:"Liubliana", country:"Eslovenia", lat:46.0569, lon:14.5058},
-  {name:"Kotor", country:"Montenegro", lat:42.4247, lon:18.7712},
-  {name:"Tallin", country:"Estonia", lat:59.4370, lon:24.7536},
-  {name:"Riga", country:"Letonia", lat:56.9496, lon:24.1052},
-  {name:"Vilna", country:"Lituania", lat:54.6872, lon:25.2797},
-  {name:"Bergen", country:"Noruega", lat:60.3913, lon:5.3221},
-  {name:"Gdansk", country:"Polonia", lat:54.3520, lon:18.6466},
-  {name:"Cracovia", country:"Polonia", lat:50.0647, lon:19.9450},
-  {name:"Matera", country:"Italia", lat:40.6664, lon:16.6043},
-  {name:"Chamonix", country:"Francia", lat:45.9237, lon:6.8694},
-  {name:"Interlaken", country:"Suiza", lat:46.6863, lon:7.8632},
-  {name:"París", country:"Francia", lat:48.8566, lon:2.3522},
-  {name:"Berlín", country:"Alemania", lat:52.5200, lon:13.4050},
-  {name:"Roma", country:"Italia", lat:41.9028, lon:12.4964},
+  {name:"Venecia", country:"Italia", lat:45.4408, lon:12.3155, continent:"Europa", tags:[]},
+  {name:"Praga", country:"República Checa", lat:50.0755, lon:14.4378, continent:"Europa", tags:["capital"]},
+  {name:"Reikiavik", country:"Islandia", lat:64.1466, lon:-21.9426, continent:"Europa", tags:["capital"]},
+  {name:"Santorini", country:"Grecia", lat:36.3932, lon:25.4615, continent:"Europa", tags:["naturaleza"]},
+  {name:"Dubrovnik", country:"Croacia", lat:42.6507, lon:18.0944, continent:"Europa", tags:[]},
+  {name:"Brujas", country:"Bélgica", lat:51.2093, lon:3.2247, continent:"Europa", tags:[]},
+  {name:"Hallstatt", country:"Austria", lat:47.5622, lon:13.6493, continent:"Europa", tags:["naturaleza"]},
+  {name:"Edimburgo", country:"Reino Unido", lat:55.9533, lon:-3.1883, continent:"Europa", tags:[]},
+  {name:"Lisboa", country:"Portugal", lat:38.7223, lon:-9.1393, continent:"Europa", tags:["capital"]},
+  {name:"Oporto", country:"Portugal", lat:41.1579, lon:-8.6291, continent:"Europa", tags:[]},
+  {name:"Barcelona", country:"España", lat:41.3874, lon:2.1686, continent:"Europa", tags:[]},
+  {name:"Sevilla", country:"España", lat:37.3891, lon:-5.9845, continent:"Europa", tags:[]},
+  {name:"Ámsterdam", country:"Países Bajos", lat:52.3676, lon:4.9041, continent:"Europa", tags:["capital"]},
+  {name:"Copenhague", country:"Dinamarca", lat:55.6761, lon:12.5683, continent:"Europa", tags:["capital"]},
+  {name:"Budapest", country:"Hungría", lat:47.4979, lon:19.0402, continent:"Europa", tags:["capital"]},
+  {name:"Viena", country:"Austria", lat:48.2082, lon:16.3738, continent:"Europa", tags:["capital"]},
+  {name:"Liubliana", country:"Eslovenia", lat:46.0569, lon:14.5058, continent:"Europa", tags:["capital"]},
+  {name:"Kotor", country:"Montenegro", lat:42.4247, lon:18.7712, continent:"Europa", tags:["naturaleza"]},
+  {name:"Tallin", country:"Estonia", lat:59.4370, lon:24.7536, continent:"Europa", tags:["capital"]},
+  {name:"Riga", country:"Letonia", lat:56.9496, lon:24.1052, continent:"Europa", tags:["capital"]},
+  {name:"Vilna", country:"Lituania", lat:54.6872, lon:25.2797, continent:"Europa", tags:["capital"]},
+  {name:"Bergen", country:"Noruega", lat:60.3913, lon:5.3221, continent:"Europa", tags:["naturaleza"]},
+  {name:"Gdansk", country:"Polonia", lat:54.3520, lon:18.6466, continent:"Europa", tags:[]},
+  {name:"Cracovia", country:"Polonia", lat:50.0647, lon:19.9450, continent:"Europa", tags:[]},
+  {name:"Matera", country:"Italia", lat:40.6664, lon:16.6043, continent:"Europa", tags:[]},
+  {name:"Chamonix", country:"Francia", lat:45.9237, lon:6.8694, continent:"Europa", tags:["naturaleza"]},
+  {name:"Interlaken", country:"Suiza", lat:46.6863, lon:7.8632, continent:"Europa", tags:["naturaleza"]},
+  {name:"París", country:"Francia", lat:48.8566, lon:2.3522, continent:"Europa", tags:["capital"]},
+  {name:"Berlín", country:"Alemania", lat:52.5200, lon:13.4050, continent:"Europa", tags:["capital"]},
+  {name:"Roma", country:"Italia", lat:41.9028, lon:12.4964, continent:"Europa", tags:["capital"]},
+  {name:"Estambul", country:"Turquía", lat:41.0082, lon:28.9784, continent:"Europa", tags:[]},
+  {name:"Capadocia", country:"Turquía", lat:38.6431, lon:34.8286, continent:"Europa", tags:["naturaleza"]},
 
   // --- África ---
-  {name:"Marrakech", country:"Marruecos", lat:31.6295, lon:-7.9811},
-  {name:"Fez", country:"Marruecos", lat:34.0181, lon:-5.0078},
-  {name:"Essaouira", country:"Marruecos", lat:31.5085, lon:-9.7595},
-  {name:"Chefchaouen", country:"Marruecos", lat:35.1688, lon:-5.2636},
-  {name:"El Cairo", country:"Egipto", lat:30.0444, lon:31.2357},
-  {name:"Ciudad del Cabo", country:"Sudáfrica", lat:-33.9249, lon:18.4241},
-  {name:"Stone Town, Zanzíbar", country:"Tanzania", lat:-6.1659, lon:39.1996},
-  {name:"Nairobi", country:"Kenia", lat:-1.2921, lon:36.8219},
-  {name:"Accra", country:"Ghana", lat:5.6037, lon:-0.1870},
-  {name:"Túnez", country:"Túnez", lat:36.8065, lon:10.1815},
-  {name:"Cataratas Victoria", country:"Zimbabue", lat:-17.9243, lon:25.8572},
-  {name:"Tombuctú", country:"Malí", lat:16.7666, lon:-3.0026},
+  {name:"Marrakech", country:"Marruecos", lat:31.6295, lon:-7.9811, continent:"África", tags:[]},
+  {name:"Fez", country:"Marruecos", lat:34.0181, lon:-5.0078, continent:"África", tags:[]},
+  {name:"Essaouira", country:"Marruecos", lat:31.5085, lon:-9.7595, continent:"África", tags:["naturaleza"]},
+  {name:"Chefchaouen", country:"Marruecos", lat:35.1688, lon:-5.2636, continent:"África", tags:[]},
+  {name:"El Cairo", country:"Egipto", lat:30.0444, lon:31.2357, continent:"África", tags:["capital"]},
+  {name:"Ciudad del Cabo", country:"Sudáfrica", lat:-33.9249, lon:18.4241, continent:"África", tags:["capital"]},
+  {name:"Stone Town, Zanzíbar", country:"Tanzania", lat:-6.1659, lon:39.1996, continent:"África", tags:["naturaleza"]},
+  {name:"Nairobi", country:"Kenia", lat:-1.2921, lon:36.8219, continent:"África", tags:["capital"]},
+  {name:"Accra", country:"Ghana", lat:5.6037, lon:-0.1870, continent:"África", tags:["capital"]},
+  {name:"Túnez", country:"Túnez", lat:36.8065, lon:10.1815, continent:"África", tags:["capital"]},
+  {name:"Cataratas Victoria", country:"Zimbabue", lat:-17.9243, lon:25.8572, continent:"África", tags:["naturaleza"]},
+  {name:"Tombuctú", country:"Malí", lat:16.7666, lon:-3.0026, continent:"África", tags:[]},
 
   // --- Asia ---
-  {name:"Kioto", country:"Japón", lat:35.0116, lon:135.7681},
-  {name:"Tokio", country:"Japón", lat:35.6762, lon:139.6503},
-  {name:"Chiang Mai", country:"Tailandia", lat:18.7883, lon:98.9853},
-  {name:"Bangkok", country:"Tailandia", lat:13.7563, lon:100.5018},
-  {name:"Hoi An", country:"Vietnam", lat:15.8801, lon:108.3380},
-  {name:"Hanói", country:"Vietnam", lat:21.0278, lon:105.8342},
-  {name:"Luang Prabang", country:"Laos", lat:19.8856, lon:102.1347},
-  {name:"Siem Reap", country:"Camboya", lat:13.3671, lon:103.8448},
-  {name:"Bagan", country:"Myanmar", lat:21.1717, lon:94.8585},
-  {name:"Jaipur", country:"India", lat:26.9124, lon:75.7873},
-  {name:"Agra", country:"India", lat:27.1767, lon:78.0081},
-  {name:"Katmandú", country:"Nepal", lat:27.7172, lon:85.3240},
-  {name:"Colombo", country:"Sri Lanka", lat:6.9271, lon:79.8612},
-  {name:"Estambul", country:"Turquía", lat:41.0082, lon:28.9784},
-  {name:"Capadocia", country:"Turquía", lat:38.6431, lon:34.8286},
-  {name:"Wadi Musa (Petra)", country:"Jordania", lat:30.3285, lon:35.4444},
-  {name:"Dubái", country:"Emiratos Árabes Unidos", lat:25.2048, lon:55.2708},
-  {name:"Seúl", country:"Corea del Sur", lat:37.5665, lon:126.9780},
-  {name:"Pekín", country:"China", lat:39.9042, lon:116.4074},
-  {name:"Lijiang", country:"China", lat:26.8721, lon:100.2300},
-  {name:"Ubud", country:"Indonesia", lat:-8.5069, lon:115.2625},
-  {name:"Singapur", country:"Singapur", lat:1.3521, lon:103.8198},
-  {name:"Hong Kong", country:"Hong Kong", lat:22.3193, lon:114.1694},
-  {name:"Almaty", country:"Kazajistán", lat:43.2220, lon:76.8512},
-  {name:"Tel Aviv", country:"Israel", lat:32.0853, lon:34.7818},
+  {name:"Kioto", country:"Japón", lat:35.0116, lon:135.7681, continent:"Asia", tags:[]},
+  {name:"Tokio", country:"Japón", lat:35.6762, lon:139.6503, continent:"Asia", tags:["capital"]},
+  {name:"Chiang Mai", country:"Tailandia", lat:18.7883, lon:98.9853, continent:"Asia", tags:[]},
+  {name:"Bangkok", country:"Tailandia", lat:13.7563, lon:100.5018, continent:"Asia", tags:["capital"]},
+  {name:"Hoi An", country:"Vietnam", lat:15.8801, lon:108.3380, continent:"Asia", tags:[]},
+  {name:"Hanói", country:"Vietnam", lat:21.0278, lon:105.8342, continent:"Asia", tags:["capital"]},
+  {name:"Luang Prabang", country:"Laos", lat:19.8856, lon:102.1347, continent:"Asia", tags:[]},
+  {name:"Siem Reap", country:"Camboya", lat:13.3671, lon:103.8448, continent:"Asia", tags:[]},
+  {name:"Bagan", country:"Myanmar", lat:21.1717, lon:94.8585, continent:"Asia", tags:[]},
+  {name:"Jaipur", country:"India", lat:26.9124, lon:75.7873, continent:"Asia", tags:[]},
+  {name:"Agra", country:"India", lat:27.1767, lon:78.0081, continent:"Asia", tags:[]},
+  {name:"Katmandú", country:"Nepal", lat:27.7172, lon:85.3240, continent:"Asia", tags:["capital"]},
+  {name:"Colombo", country:"Sri Lanka", lat:6.9271, lon:79.8612, continent:"Asia", tags:["capital"]},
+  {name:"Wadi Musa (Petra)", country:"Jordania", lat:30.3285, lon:35.4444, continent:"Asia", tags:["naturaleza"]},
+  {name:"Dubái", country:"Emiratos Árabes Unidos", lat:25.2048, lon:55.2708, continent:"Asia", tags:[]},
+  {name:"Seúl", country:"Corea del Sur", lat:37.5665, lon:126.9780, continent:"Asia", tags:["capital"]},
+  {name:"Pekín", country:"China", lat:39.9042, lon:116.4074, continent:"Asia", tags:["capital"]},
+  {name:"Lijiang", country:"China", lat:26.8721, lon:100.2300, continent:"Asia", tags:[]},
+  {name:"Ubud", country:"Indonesia", lat:-8.5069, lon:115.2625, continent:"Asia", tags:["naturaleza"]},
+  {name:"Singapur", country:"Singapur", lat:1.3521, lon:103.8198, continent:"Asia", tags:["capital"]},
+  {name:"Hong Kong", country:"Hong Kong", lat:22.3193, lon:114.1694, continent:"Asia", tags:[]},
+  {name:"Almaty", country:"Kazajistán", lat:43.2220, lon:76.8512, continent:"Asia", tags:[]},
+  {name:"Tel Aviv", country:"Israel", lat:32.0853, lon:34.7818, continent:"Asia", tags:[]},
 
   // --- Oceanía ---
-  {name:"Sídney", country:"Australia", lat:-33.8688, lon:151.2093},
-  {name:"Melbourne", country:"Australia", lat:-37.8136, lon:144.9631},
-  {name:"Queenstown", country:"Nueva Zelanda", lat:-45.0312, lon:168.6626},
-  {name:"Alice Springs", country:"Australia", lat:-23.6980, lon:133.8807},
-  {name:"Rotorua", country:"Nueva Zelanda", lat:-38.1368, lon:176.2497},
-  {name:"Suva", country:"Fiyi", lat:-18.1416, lon:178.4419},
+  {name:"Sídney", country:"Australia", lat:-33.8688, lon:151.2093, continent:"Oceanía", tags:[]},
+  {name:"Melbourne", country:"Australia", lat:-37.8136, lon:144.9631, continent:"Oceanía", tags:[]},
+  {name:"Queenstown", country:"Nueva Zelanda", lat:-45.0312, lon:168.6626, continent:"Oceanía", tags:["naturaleza"]},
+  {name:"Alice Springs", country:"Australia", lat:-23.6980, lon:133.8807, continent:"Oceanía", tags:["naturaleza"]},
+  {name:"Rotorua", country:"Nueva Zelanda", lat:-38.1368, lon:176.2497, continent:"Oceanía", tags:["naturaleza"]},
+  {name:"Suva", country:"Fiyi", lat:-18.1416, lon:178.4419, continent:"Oceanía", tags:["capital"]},
 
   // --- Norteamérica ---
-  {name:"Nueva Orleans", country:"Estados Unidos", lat:29.9511, lon:-90.0715},
-  {name:"Charleston", country:"Estados Unidos", lat:32.7765, lon:-79.9311},
-  {name:"Nueva York", country:"Estados Unidos", lat:40.7128, lon:-74.0060},
-  {name:"San Francisco", country:"Estados Unidos", lat:37.7749, lon:-122.4194},
-  {name:"Santa Fe", country:"Estados Unidos", lat:35.6870, lon:-105.9378},
-  {name:"Ciudad de México", country:"México", lat:19.4326, lon:-99.1332},
-  {name:"San Miguel de Allende", country:"México", lat:20.9153, lon:-100.7439},
-  {name:"Antigua", country:"Guatemala", lat:14.5586, lon:-90.7295},
-  {name:"La Habana", country:"Cuba", lat:23.1136, lon:-82.3666},
-  {name:"Montreal", country:"Canadá", lat:45.5019, lon:-73.5674},
-  {name:"Quebec", country:"Canadá", lat:46.8139, lon:-71.2080},
-  {name:"Vancouver", country:"Canadá", lat:49.2827, lon:-123.1207},
+  {name:"Nueva Orleans", country:"Estados Unidos", lat:29.9511, lon:-90.0715, continent:"Norteamérica", tags:[]},
+  {name:"Charleston", country:"Estados Unidos", lat:32.7765, lon:-79.9311, continent:"Norteamérica", tags:[]},
+  {name:"Nueva York", country:"Estados Unidos", lat:40.7128, lon:-74.0060, continent:"Norteamérica", tags:[]},
+  {name:"San Francisco", country:"Estados Unidos", lat:37.7749, lon:-122.4194, continent:"Norteamérica", tags:[]},
+  {name:"Santa Fe", country:"Estados Unidos", lat:35.6870, lon:-105.9378, continent:"Norteamérica", tags:[]},
+  {name:"Ciudad de México", country:"México", lat:19.4326, lon:-99.1332, continent:"Norteamérica", tags:["capital"]},
+  {name:"San Miguel de Allende", country:"México", lat:20.9153, lon:-100.7439, continent:"Norteamérica", tags:[]},
+  {name:"Antigua", country:"Guatemala", lat:14.5586, lon:-90.7295, continent:"Norteamérica", tags:[]},
+  {name:"La Habana", country:"Cuba", lat:23.1136, lon:-82.3666, continent:"Norteamérica", tags:["capital"]},
+  {name:"Montreal", country:"Canadá", lat:45.5019, lon:-73.5674, continent:"Norteamérica", tags:[]},
+  {name:"Quebec", country:"Canadá", lat:46.8139, lon:-71.2080, continent:"Norteamérica", tags:[]},
+  {name:"Vancouver", country:"Canadá", lat:49.2827, lon:-123.1207, continent:"Norteamérica", tags:[]},
 
   // --- Sudamérica ---
-  {name:"Cusco", country:"Perú", lat:-13.5319, lon:-71.9675},
-  {name:"Cartagena de Indias", country:"Colombia", lat:10.3910, lon:-75.4794},
-  {name:"Valparaíso", country:"Chile", lat:-33.0472, lon:-71.6127},
-  {name:"Buenos Aires", country:"Argentina", lat:-34.6037, lon:-58.3816},
-  {name:"Salvador de Bahía", country:"Brasil", lat:-12.9777, lon:-38.5016},
-  {name:"Río de Janeiro", country:"Brasil", lat:-22.9068, lon:-43.1729},
-  {name:"Quito", country:"Ecuador", lat:-0.1807, lon:-78.4678},
-  {name:"La Paz", country:"Bolivia", lat:-16.5000, lon:-68.1500},
-  {name:"Montevideo", country:"Uruguay", lat:-34.9011, lon:-56.1645},
-  {name:"Ushuaia", country:"Argentina", lat:-54.8019, lon:-68.3030},
-  {name:"Bariloche", country:"Argentina", lat:-41.1335, lon:-71.3103},
-  {name:"El Chaltén", country:"Argentina", lat:-49.3336, lon:-72.8877},
-  {name:"Salta", country:"Argentina", lat:-24.7859, lon:-65.4117},
-  {name:"Mendoza", country:"Argentina", lat:-32.8895, lon:-68.8458}
+  {name:"Cusco", country:"Perú", lat:-13.5319, lon:-71.9675, continent:"Sudamérica", tags:[]},
+  {name:"Cartagena de Indias", country:"Colombia", lat:10.3910, lon:-75.4794, continent:"Sudamérica", tags:[]},
+  {name:"Valparaíso", country:"Chile", lat:-33.0472, lon:-71.6127, continent:"Sudamérica", tags:[]},
+  {name:"Buenos Aires", country:"Argentina", lat:-34.6037, lon:-58.3816, continent:"Sudamérica", tags:["capital"]},
+  {name:"Salvador de Bahía", country:"Brasil", lat:-12.9777, lon:-38.5016, continent:"Sudamérica", tags:[]},
+  {name:"Río de Janeiro", country:"Brasil", lat:-22.9068, lon:-43.1729, continent:"Sudamérica", tags:[]},
+  {name:"Quito", country:"Ecuador", lat:-0.1807, lon:-78.4678, continent:"Sudamérica", tags:["capital"]},
+  {name:"La Paz", country:"Bolivia", lat:-16.5000, lon:-68.1500, continent:"Sudamérica", tags:["capital"]},
+  {name:"Montevideo", country:"Uruguay", lat:-34.9011, lon:-56.1645, continent:"Sudamérica", tags:["capital"]},
+  {name:"Ushuaia", country:"Argentina", lat:-54.8019, lon:-68.3030, continent:"Sudamérica", tags:["naturaleza"]},
+  {name:"Bariloche", country:"Argentina", lat:-41.1335, lon:-71.3103, continent:"Sudamérica", tags:["naturaleza"]},
+  {name:"El Chaltén", country:"Argentina", lat:-49.3336, lon:-72.8877, continent:"Sudamérica", tags:["naturaleza"]},
+  {name:"Salta", country:"Argentina", lat:-24.7859, lon:-65.4117, continent:"Sudamérica", tags:["naturaleza"]},
+  {name:"Mendoza", country:"Argentina", lat:-32.8895, lon:-68.8458, continent:"Sudamérica", tags:[]}
 ];
 
 const TOTAL_ROUNDS = 5;
@@ -417,6 +516,64 @@ let scores = [];
 let current = null;
 let guessMarker = null;
 let confirmed = false;
+
+let selectedCategory = 'todos';
+let selectedContinent = null;
+let pool = LOCATIONS;
+
+function computePool(){
+  if(selectedCategory === 'todos') return LOCATIONS;
+  if(selectedCategory === 'capital') return LOCATIONS.filter(l => l.tags.includes('capital'));
+  if(selectedCategory === 'naturaleza') return LOCATIONS.filter(l => l.tags.includes('naturaleza'));
+  if(selectedCategory === 'continente' && selectedContinent) return LOCATIONS.filter(l => l.continent === selectedContinent);
+  return LOCATIONS;
+}
+
+function updateCatCount(){
+  const p = computePool();
+  const countEl = document.getElementById('catCount');
+  if(selectedCategory === 'continente' && !selectedContinent){
+    countEl.textContent = 'Elige un continente arriba';
+  } else {
+    countEl.textContent = p.length + ' lugares en esta categoría';
+  }
+  document.getElementById('startGameBtn').disabled = (selectedCategory === 'continente' && !selectedContinent) || p.length === 0;
+}
+
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+    this.classList.add('selected');
+    selectedCategory = this.dataset.cat;
+    document.getElementById('continentGrid').classList.toggle('show', selectedCategory === 'continente');
+    if(selectedCategory !== 'continente') selectedContinent = null;
+    updateCatCount();
+  });
+});
+
+document.querySelectorAll('.continent-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.continent-btn').forEach(b => b.classList.remove('selected'));
+    this.classList.add('selected');
+    selectedContinent = this.dataset.continent;
+    updateCatCount();
+  });
+});
+
+document.getElementById('startGameBtn').addEventListener('click', function(){
+  pool = computePool();
+  document.getElementById('catOverlay').classList.remove('show');
+  round = 0; totalScore = 0; scores = []; remaining = [];
+  document.getElementById('scoreTotal').textContent = '0';
+  startRound();
+});
+
+document.getElementById('settingsBtn').addEventListener('click', function(){
+  document.getElementById('catOverlay').classList.add('show');
+  updateCatCount();
+});
+
+updateCatCount();
 
 function shuffle(arr){
   const a = arr.slice();
@@ -479,7 +636,7 @@ function startRound(){
   document.getElementById('confirmBtn').disabled = true;
   document.getElementById('guessHint').textContent = 'Coloca un marcador en el mapa de la derecha.';
 
-  if(remaining.length === 0){ remaining = shuffle(LOCATIONS); }
+  if(remaining.length === 0){ remaining = shuffle(pool.length ? pool : LOCATIONS); }
   current = remaining.pop();
 
   const jitterLat = (Math.random()-0.5) * 0.01;
@@ -578,7 +735,6 @@ window.addEventListener('resize', function(){
 setTimeout(function(){
   explorer.invalidateSize();
   guessMap.invalidateSize();
-  startRound();
 }, 200);
 
 // --- PWA: registro del service worker ---
