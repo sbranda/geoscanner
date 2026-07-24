@@ -326,7 +326,7 @@
 <script>
 // ======== CONFIGURA TU TOKEN AQUÍ ========
 // Consíguelo gratis en https://www.mapillary.com/dashboard/developers
-const MAPILLARY_TOKEN = "MLY|27900352552933740|eaa5c420e03c2fa4d0b659d359c994ef";
+const MAPILLARY_TOKEN = "TU_MAPILLARY_TOKEN_AQUI";
 // ==========================================
 
 const LOCATIONS = [
@@ -432,9 +432,14 @@ guessMap.on('click', function(e){
 // hay cobertura saltamos a otro lugar de la lista.
 async function searchMapillaryImage(lat, lon, halfDeg){
   const bbox = (lon-halfDeg)+','+(lat-halfDeg)+','+(lon+halfDeg)+','+(lat+halfDeg);
-  const url = 'https://graph.mapillary.com/images?fields=id&bbox='+bbox+'&limit=20';
-  const res = await fetch(url, { headers: { Authorization: 'OAuth ' + MAPILLARY_TOKEN } });
-  if(!res.ok) throw new Error('Mapillary API error: ' + res.status);
+  const url = 'https://graph.mapillary.com/images?access_token=' + encodeURIComponent(MAPILLARY_TOKEN)
+            + '&fields=id&bbox=' + bbox + '&limit=20';
+  const res = await fetch(url);
+  if(!res.ok){
+    let detail = '';
+    try{ detail = await res.text(); }catch(e){}
+    throw new Error('HTTP ' + res.status + ' — ' + detail.slice(0,200));
+  }
   const data = await res.json();
   return (data && data.data) ? data.data : [];
 }
@@ -456,7 +461,10 @@ async function findImageAndStart(){
         }
       } catch(err){
         console.warn('Error buscando en Mapillary:', err);
-        document.getElementById('streetview').innerHTML = '<div class="loading-msg">Error al consultar Mapillary. Revisa tu token y tu conexión.</div>';
+        document.getElementById('streetview').innerHTML =
+          '<div class="loading-msg">Error al consultar Mapillary:<br><b>' +
+          (err.message || err) +
+          '</b><br><br>Abre la consola del navegador (F12) para más detalle.</div>';
         return;
       }
     }
