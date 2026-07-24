@@ -309,7 +309,7 @@
     color:#fff;
     border-color: var(--brass);
   }
-  #settingsBtn{
+  #settingsBtn, #muteBtn{
     background: transparent;
     border: 1.5px solid rgba(237,228,211,0.4);
     color: var(--parchment);
@@ -318,7 +318,7 @@
     border-radius:3px;
     cursor:pointer;
   }
-  #settingsBtn:hover{ border-color: var(--parchment); }
+  #settingsBtn:hover, #muteBtn:hover{ border-color: var(--parchment); }
 
   .player-name-input{
     width:100%;
@@ -468,6 +468,7 @@
     <div id="turnIndicator" style="display:none;">👤 <span id="turnPlayerName"></span></div>
     <div>Puntos <span id="scoreTotal">0</span></div>
     <button id="settingsBtn">⚙ Categoría</button>
+    <button id="muteBtn">🔊</button>
   </div>
 </header>
 
@@ -1302,6 +1303,71 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ---- Sonido sutil al acertar/fallar (Web Audio API, sin archivos externos) ----
+const SOUND_KEY = 'atlasErrante_soundEnabled';
+let soundEnabled = true;
+try{
+  const savedSound = localStorage.getItem(SOUND_KEY);
+  if(savedSound !== null) soundEnabled = savedSound === 'true';
+} catch(e){}
+
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    audioCtx = new AC();
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(freq, startOffset, duration, peakVolume){
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  const t0 = ctx.currentTime + startOffset;
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(peakVolume, t0 + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.05);
+}
+
+function playSuccessSound(){
+  if(!soundEnabled) return;
+  try{
+    playTone(523.25, 0, 0.15, 0.12);
+    playTone(783.99, 0.1, 0.25, 0.12);
+  } catch(e){}
+}
+
+function playMissSound(){
+  if(!soundEnabled) return;
+  try{
+    playTone(220.00, 0, 0.30, 0.10);
+    playTone(174.61, 0.12, 0.35, 0.08);
+  } catch(e){}
+}
+
+function updateMuteBtn(){
+  document.getElementById('muteBtn').textContent = soundEnabled ? '🔊' : '🔇';
+}
+
+document.getElementById('muteBtn').addEventListener('click', function(){
+  soundEnabled = !soundEnabled;
+  try{ localStorage.setItem(SOUND_KEY, String(soundEnabled)); } catch(e){}
+  updateMuteBtn();
+  if(soundEnabled) playSuccessSound();
+});
+
+updateMuteBtn();
+
 function compassSVG(){
   return '<svg class="compass" viewBox="0 0 100 100">' +
     '<circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>' +
@@ -1541,6 +1607,9 @@ function revealRound(){
   guessMap.fitBounds(bounds, {padding:[60,60]});
 
   roundResults.sort((a,b) => a.dist - b.dist);
+  if(roundResults.length){
+    if(roundResults[0].dist < 200) playSuccessSound(); else playMissSound();
+  }
 
   let rowsHtml = '';
   roundResults.forEach((r, idx) => {
