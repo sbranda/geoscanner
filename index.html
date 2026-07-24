@@ -379,7 +379,9 @@
       <button class="cat-btn" data-cat="capital">🏛 Solo capitales</button>
       <button class="cat-btn" data-cat="naturaleza">🏔 Naturaleza/parques</button>
       <button class="cat-btn" data-cat="continente">📍 Mi continente</button>
+      <button class="cat-btn" data-cat="diario" style="grid-column: span 2;">📅 Desafío diario</button>
     </div>
+    <div class="hint" id="dailyHint" style="display:none; margin-bottom:10px;"></div>
     <div class="continent-grid" id="continentGrid">
       <button class="continent-btn" data-continent="Europa">Europa</button>
       <button class="continent-btn" data-continent="África">África</button>
@@ -522,7 +524,7 @@ let selectedContinent = null;
 let pool = LOCATIONS;
 
 function computePool(){
-  if(selectedCategory === 'todos') return LOCATIONS;
+  if(selectedCategory === 'todos' || selectedCategory === 'diario') return LOCATIONS;
   if(selectedCategory === 'capital') return LOCATIONS.filter(l => l.tags.includes('capital'));
   if(selectedCategory === 'naturaleza') return LOCATIONS.filter(l => l.tags.includes('naturaleza'));
   if(selectedCategory === 'continente' && selectedContinent) return LOCATIONS.filter(l => l.continent === selectedContinent);
@@ -547,6 +549,19 @@ document.querySelectorAll('.cat-btn').forEach(btn => {
     selectedCategory = this.dataset.cat;
     document.getElementById('continentGrid').classList.toggle('show', selectedCategory === 'continente');
     if(selectedCategory !== 'continente') selectedContinent = null;
+
+    const dailyHint = document.getElementById('dailyHint');
+    if(selectedCategory === 'diario'){
+      isDailyMode = true;
+      const dateStr = todayDateString();
+      dailyRng = mulberry32(hashStringToInt(dateStr));
+      const [y,m,d] = dateStr.split('-');
+      dailyHint.textContent = '📅 Desafío del ' + d + '/' + m + '/' + y + ' — mismos lugares para todos hoy';
+      dailyHint.style.display = 'block';
+    } else {
+      isDailyMode = false;
+      dailyHint.style.display = 'none';
+    }
     updateCatCount();
   });
 });
@@ -579,6 +594,42 @@ function shuffle(arr){
   const a = arr.slice();
   for(let i=a.length-1;i>0;i--){
     const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+// ---- Semilla determinista para el desafío diario (mismo lugar para todos el mismo día) ----
+function hashStringToInt(str){
+  let h = 0;
+  for(let i=0; i<str.length; i++){
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed){
+  let a = seed;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function todayDateString(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+let dailyRng = null;
+let isDailyMode = false;
+
+function shuffleSeeded(arr, rng){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(rng()*(i+1));
     [a[i],a[j]]=[a[j],a[i]];
   }
   return a;
@@ -636,11 +687,14 @@ function startRound(){
   document.getElementById('confirmBtn').disabled = true;
   document.getElementById('guessHint').textContent = 'Coloca un marcador en el mapa de la derecha.';
 
-  if(remaining.length === 0){ remaining = shuffle(pool.length ? pool : LOCATIONS); }
+  const rng = isDailyMode ? dailyRng : Math.random;
+  if(remaining.length === 0){
+    remaining = isDailyMode ? shuffleSeeded(pool.length ? pool : LOCATIONS, dailyRng) : shuffle(pool.length ? pool : LOCATIONS);
+  }
   current = remaining.pop();
 
-  const jitterLat = (Math.random()-0.5) * 0.01;
-  const jitterLon = (Math.random()-0.5) * 0.01;
+  const jitterLat = (rng()-0.5) * 0.01;
+  const jitterLon = (rng()-0.5) * 0.01;
   explorer.setView([current.lat + jitterLat, current.lon + jitterLon], 15);
 
   document.getElementById('roundNum').textContent = round + 1;
