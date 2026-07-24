@@ -393,6 +393,7 @@
     <div>
       <span class="hint" id="guessHint">Coloca un marcador en el mapa de la derecha.</span>
       <div class="hint" id="hintText" style="color:var(--brass-dark); font-weight:600; margin-top:4px;"></div>
+      <div class="hint" id="turnTimer" style="font-family:'JetBrains Mono', monospace; font-weight:700; margin-top:4px;">⏱ 0:00</div>
     </div>
     <button class="btn-primary" id="confirmBtn" disabled>Confirmar conjetura</button>
   </div>
@@ -411,7 +412,7 @@
     </svg>
     <h2>Elige una categoría</h2>
     <div class="place">¿Qué lugares quieres adivinar?</div>
-    <div class="cat-grid">
+    <div class="cat-grid" id="categoryGrid">
       <button class="cat-btn selected" data-cat="todos">🌍 Todos</button>
       <button class="cat-btn" data-cat="capital">🏛 Solo capitales</button>
       <button class="cat-btn" data-cat="naturaleza">🏔 Naturaleza/parques</button>
@@ -428,6 +429,30 @@
       <button class="continent-btn" data-continent="Sudamérica">Sudamérica</button>
     </div>
     <div class="hint" id="catCount" style="margin-bottom:14px;"></div>
+
+    <div class="hint" style="margin-bottom:6px;">Dificultad (zoom inicial al explorar)</div>
+    <div class="cat-grid" id="difficultyGrid" style="margin-bottom:14px;">
+      <button class="cat-btn" data-difficulty="facil">🟢 Fácil</button>
+      <button class="cat-btn selected" data-difficulty="normal">🟡 Normal</button>
+      <button class="cat-btn" data-difficulty="dificil">🟠 Difícil</button>
+      <button class="cat-btn" data-difficulty="experto">🔴 Experto</button>
+    </div>
+
+    <div class="hint" style="margin-bottom:6px;">⏱ Tiempos de pistas (segundos)</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:14px;">
+      <label class="hint" style="text-align:left;">🛣️ Calles<br>
+        <input type="number" min="5" step="5" id="hintTime_calles" class="player-name-input" value="30">
+      </label>
+      <label class="hint" style="text-align:left;">🌊 Terreno<br>
+        <input type="number" min="5" step="5" id="hintTime_terreno" class="player-name-input" value="60">
+      </label>
+      <label class="hint" style="text-align:left;">🌍 Continente<br>
+        <input type="number" min="5" step="5" id="hintTime_continente" class="player-name-input" value="90">
+      </label>
+      <label class="hint" style="text-align:left;">🚩 País<br>
+        <input type="number" min="5" step="5" id="hintTime_pais" class="player-name-input" value="120">
+      </label>
+    </div>
 
     <button class="cat-btn" id="mpToggleBtn" style="width:100%; margin-bottom:10px;">👥 Multijugador (pasar el celular)</button>
     <div id="mpPlayersSection" style="display:none; margin-bottom:14px;">
@@ -585,6 +610,9 @@ let players = [];
 let currentPlayerIdx = 0;
 let roundGuesses = [];
 
+const DIFFICULTY_ZOOM = { facil: 17, normal: 15, dificil: 13, experto: 11 };
+let selectedDifficulty = 'normal';
+
 function computePool(){
   if(selectedCategory === 'todos' || selectedCategory === 'diario') return LOCATIONS;
   if(selectedCategory === 'capital') return LOCATIONS.filter(l => l.tags.includes('capital'));
@@ -604,9 +632,9 @@ function updateCatCount(){
   document.getElementById('startGameBtn').disabled = (selectedCategory === 'continente' && !selectedContinent) || p.length === 0;
 }
 
-document.querySelectorAll('.cat-grid .cat-btn').forEach(btn => {
+document.querySelectorAll('#categoryGrid .cat-btn').forEach(btn => {
   btn.addEventListener('click', function(){
-    document.querySelectorAll('.cat-grid .cat-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('#categoryGrid .cat-btn').forEach(b => b.classList.remove('selected'));
     this.classList.add('selected');
     selectedCategory = this.dataset.cat;
     document.getElementById('continentGrid').classList.toggle('show', selectedCategory === 'continente');
@@ -634,6 +662,14 @@ document.querySelectorAll('.continent-btn').forEach(btn => {
     this.classList.add('selected');
     selectedContinent = this.dataset.continent;
     updateCatCount();
+  });
+});
+
+document.querySelectorAll('#difficultyGrid .cat-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('#difficultyGrid .cat-btn').forEach(b => b.classList.remove('selected'));
+    this.classList.add('selected');
+    selectedDifficulty = this.dataset.difficulty;
   });
 });
 
@@ -670,6 +706,12 @@ document.getElementById('mpPlus').addEventListener('click', function(){
 document.getElementById('startGameBtn').addEventListener('click', function(){
   pool = computePool();
   document.getElementById('catOverlay').classList.remove('show');
+
+  HINT_TIERS.forEach(tier => {
+    const inp = document.getElementById('hintTime_' + tier.key);
+    const val = inp ? parseInt(inp.value, 10) : NaN;
+    if(!isNaN(val) && val > 0) tier.ms = val * 1000;
+  });
 
   if(mpEnabled){
     const inputs = [...document.getElementById('mpNameInputs').querySelectorAll('input')];
@@ -762,6 +804,7 @@ const explorerTilesLabeled = L.tileLayer('https://{s}.basemaps.cartocdn.com/rast
   maxZoom: 19
 });
 let roundCenter = null;
+let roundZoom = 15;
 
 const actualIcon = L.divIcon({className:'', html:'<div style="background:#2F6B62;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #2F6B62;"></div>', iconSize:[16,16]});
 const guessIcon = L.divIcon({className:'', html:'<div style="background:#B8863B;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #B8863B;"></div>', iconSize:[16,16]});
@@ -822,7 +865,7 @@ let currentHintPenalty = 0;
 function resetExplorerView(){
   if(explorer.hasLayer(explorerTilesLabeled)) explorer.removeLayer(explorerTilesLabeled);
   if(!explorer.hasLayer(explorerTilesPlain)) explorerTilesPlain.addTo(explorer);
-  if(roundCenter) explorer.setView(roundCenter, 15);
+  if(roundCenter) explorer.setView(roundCenter, roundZoom);
 }
 
 function tierStreets(){
@@ -831,7 +874,7 @@ function tierStreets(){
   return '🛣️ Pista: nombres de calles visibles';
 }
 function tierTerrain(){
-  explorer.setZoom(13);
+  explorer.setZoom(Math.max(3, roundZoom - 2));
   return '🌊 Pista: se reveló más terreno alrededor (ríos, costas)';
 }
 function tierContinent(){
@@ -842,19 +885,39 @@ function tierCountry(){
 }
 
 const HINT_TIERS = [
-  { ms: 30000, cost: 300, apply: tierStreets },
-  { ms: 60000, cost: 400, apply: tierTerrain },
-  { ms: 90000, cost: 600, apply: tierContinent },
-  { ms: 120000, cost: 900, apply: tierCountry }
+  { key: 'calles', ms: 30000, cost: 300, apply: tierStreets },
+  { key: 'terreno', ms: 60000, cost: 400, apply: tierTerrain },
+  { key: 'continente', ms: 90000, cost: 600, apply: tierContinent },
+  { key: 'pais', ms: 120000, cost: 900, apply: tierCountry }
 ];
 
 function clearHints(){
   hintTimeouts.forEach(t => clearTimeout(t));
   hintTimeouts = [];
   document.getElementById('hintText').textContent = '';
+  stopTurnTimer();
+}
+
+let timerInterval = null;
+
+function stopTurnTimer(){
+  if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+  document.getElementById('turnTimer').textContent = '⏱ 0:00';
+}
+
+function startTurnTimer(){
+  const start = Date.now();
+  document.getElementById('turnTimer').textContent = '⏱ 0:00';
+  timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - start) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    document.getElementById('turnTimer').textContent = '⏱ ' + m + ':' + String(s).padStart(2,'0');
+  }, 1000);
 }
 
 function scheduleHints(){
+  startTurnTimer();
   HINT_TIERS.forEach(tier => {
     hintTimeouts.push(setTimeout(() => {
       currentHintPenalty += tier.cost;
@@ -877,6 +940,7 @@ function startRound(){
   const jitterLat = (rng()-0.5) * 0.01;
   const jitterLon = (rng()-0.5) * 0.01;
   roundCenter = [current.lat + jitterLat, current.lon + jitterLon];
+  roundZoom = DIFFICULTY_ZOOM[selectedDifficulty] || 15;
 
   document.getElementById('roundNum').textContent = round + 1;
 
