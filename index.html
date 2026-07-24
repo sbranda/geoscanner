@@ -315,6 +315,52 @@
     cursor:pointer;
   }
   #settingsBtn:hover{ border-color: var(--parchment); }
+
+  .player-name-input{
+    width:100%;
+    box-sizing:border-box;
+    font-family:'Inter', sans-serif;
+    font-size:0.88rem;
+    padding:9px 12px;
+    margin-bottom:8px;
+    border:1.5px solid var(--paper-line);
+    border-radius:3px;
+    color: var(--charcoal);
+  }
+  .player-name-input:focus{ border-color: var(--brass); outline:none; }
+  .turn-badge{
+    display:inline-block;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    font-weight:700;
+    padding:3px 10px;
+    border-radius:12px;
+    color:#fff;
+    margin-bottom:8px;
+  }
+  .mp-round-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 10px;
+    border-radius:3px;
+    margin-bottom:6px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.82rem;
+    background: rgba(184,134,59,0.06);
+  }
+  .mp-round-row .pname{ font-weight:700; }
+  .leaderboard-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 12px;
+    border-radius:3px;
+    margin-bottom:8px;
+    font-family:'Inter', sans-serif;
+  }
+  .leaderboard-row.rank-1{ background: rgba(184,134,59,0.15); border:1px solid var(--brass); }
+  .leaderboard-row .rank-num{ font-family:'JetBrains Mono', monospace; font-weight:700; margin-right:10px; }
 </style>
 </head>
 <body>
@@ -323,6 +369,7 @@
   <h1>🧭 Atlas Errante</h1>
   <div class="hud">
     <div>Ronda <span id="roundNum">1</span>/<span id="roundTotal">5</span></div>
+    <div id="turnIndicator" style="display:none;">👤 <span id="turnPlayerName"></span></div>
     <div>Puntos <span id="scoreTotal">0</span></div>
     <button id="settingsBtn">⚙ Categoría</button>
   </div>
@@ -349,20 +396,7 @@
 </main>
 
 <div id="overlay">
-  <div class="card" id="resultCard">
-    <svg class="compass" id="compassIcon" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>
-      <polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>
-      <circle cx="50" cy="50" r="4" fill="#B8863B"/>
-    </svg>
-    <h2 id="resultTitle">¡Bien hecho!</h2>
-    <div class="place" id="resultPlace">Venecia, Italia</div>
-    <div class="stat-row">
-      <div class="stat"><span class="num" id="resultDistance">0</span><span class="lbl">km de distancia</span></div>
-      <div class="stat"><span class="num" id="resultPoints">0</span><span class="lbl">puntos</span></div>
-    </div>
-    <button class="btn-primary" id="nextBtn">Siguiente ronda</button>
-  </div>
+  <div class="card" id="resultCard"></div>
 </div>
 
 <div id="catOverlay" class="show">
@@ -391,6 +425,18 @@
       <button class="continent-btn" data-continent="Sudamérica">Sudamérica</button>
     </div>
     <div class="hint" id="catCount" style="margin-bottom:14px;"></div>
+
+    <button class="cat-btn" id="mpToggleBtn" style="width:100%; margin-bottom:10px;">👥 Multijugador (pasar el celular)</button>
+    <div id="mpPlayersSection" style="display:none; margin-bottom:14px;">
+      <div class="hint" style="margin-bottom:6px;">Cantidad de jugadores</div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:12px;">
+        <button class="btn-ghost" id="mpMinus" style="padding:6px 14px;">−</button>
+        <span id="mpCount" style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:1.1rem;">2</span>
+        <button class="btn-ghost" id="mpPlus" style="padding:6px 14px;">+</button>
+      </div>
+      <div id="mpNameInputs"></div>
+    </div>
+
     <button class="btn-primary" id="startGameBtn">Comenzar</button>
   </div>
 </div>
@@ -521,8 +567,6 @@ const LOCATIONS = [
 const TOTAL_ROUNDS = 5;
 let remaining = [];
 let round = 0;
-let totalScore = 0;
-let scores = [];
 let current = null;
 let guessMarker = null;
 let confirmed = false;
@@ -530,6 +574,13 @@ let confirmed = false;
 let selectedCategory = 'todos';
 let selectedContinent = null;
 let pool = LOCATIONS;
+
+const PLAYER_COLORS = ['#B8863B','#2F6B62','#1B2A4A','#8E44AD','#C0392B','#16A085'];
+let mpEnabled = false;
+let mpPlayerCount = 2;
+let players = [];
+let currentPlayerIdx = 0;
+let roundGuesses = [];
 
 function computePool(){
   if(selectedCategory === 'todos' || selectedCategory === 'diario') return LOCATIONS;
@@ -550,9 +601,9 @@ function updateCatCount(){
   document.getElementById('startGameBtn').disabled = (selectedCategory === 'continente' && !selectedContinent) || p.length === 0;
 }
 
-document.querySelectorAll('.cat-btn').forEach(btn => {
+document.querySelectorAll('.cat-grid .cat-btn').forEach(btn => {
   btn.addEventListener('click', function(){
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('.cat-grid .cat-btn').forEach(b => b.classList.remove('selected'));
     this.classList.add('selected');
     selectedCategory = this.dataset.cat;
     document.getElementById('continentGrid').classList.toggle('show', selectedCategory === 'continente');
@@ -583,11 +634,54 @@ document.querySelectorAll('.continent-btn').forEach(btn => {
   });
 });
 
+function renderPlayerInputs(){
+  const container = document.getElementById('mpNameInputs');
+  const prevValues = [...container.querySelectorAll('input')].map(i => i.value);
+  container.innerHTML = '';
+  for(let i=0; i<mpPlayerCount; i++){
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'player-name-input';
+    input.placeholder = 'Jugador ' + (i+1);
+    input.value = prevValues[i] || '';
+    input.maxLength = 20;
+    container.appendChild(input);
+  }
+}
+
+document.getElementById('mpToggleBtn').addEventListener('click', function(){
+  mpEnabled = !mpEnabled;
+  this.classList.toggle('selected', mpEnabled);
+  document.getElementById('mpPlayersSection').style.display = mpEnabled ? 'block' : 'none';
+  if(mpEnabled) renderPlayerInputs();
+});
+
+document.getElementById('mpMinus').addEventListener('click', function(){
+  if(mpPlayerCount > 2){ mpPlayerCount--; document.getElementById('mpCount').textContent = mpPlayerCount; renderPlayerInputs(); }
+});
+
+document.getElementById('mpPlus').addEventListener('click', function(){
+  if(mpPlayerCount < 6){ mpPlayerCount++; document.getElementById('mpCount').textContent = mpPlayerCount; renderPlayerInputs(); }
+});
+
 document.getElementById('startGameBtn').addEventListener('click', function(){
   pool = computePool();
   document.getElementById('catOverlay').classList.remove('show');
-  round = 0; totalScore = 0; scores = []; remaining = [];
-  document.getElementById('scoreTotal').textContent = '0';
+
+  if(mpEnabled){
+    const inputs = [...document.getElementById('mpNameInputs').querySelectorAll('input')];
+    players = inputs.map((inp, i) => ({
+      name: inp.value.trim() || ('Jugador ' + (i+1)),
+      color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+      total: 0
+    }));
+  } else {
+    players = [{ name:'Tú', color: PLAYER_COLORS[0], total: 0 }];
+  }
+
+  document.getElementById('turnIndicator').style.display = mpEnabled ? 'inline-block' : 'none';
+
+  round = 0; remaining = [];
   startRound();
 });
 
@@ -662,8 +756,8 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/
 const actualIcon = L.divIcon({className:'', html:'<div style="background:#2F6B62;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #2F6B62;"></div>', iconSize:[16,16]});
 const guessIcon = L.divIcon({className:'', html:'<div style="background:#B8863B;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #B8863B;"></div>', iconSize:[16,16]});
 
-let resultLine = null;
 let actualMarker = null;
+let guessMarkersThisRound = [];
 
 guessMap.on('click', function(e){
   if(confirmed) return;
@@ -687,14 +781,33 @@ function scoreFromDistance(km){
   return Math.max(0, Math.min(5000, s));
 }
 
-function startRound(){
-  confirmed = false;
-  if(guessMarker){ guessMap.removeLayer(guessMarker); guessMarker = null; }
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function compassSVG(){
+  return '<svg class="compass" viewBox="0 0 100 100">' +
+    '<circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>' +
+    '<polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>' +
+    '<circle cx="50" cy="50" r="4" fill="#B8863B"/>' +
+    '</svg>';
+}
+
+function clearAllGuessMarkers(){
+  guessMarkersThisRound.forEach(m => guessMap.removeLayer(m));
+  guessMarkersThisRound = [];
   if(actualMarker){ guessMap.removeLayer(actualMarker); actualMarker = null; }
-  if(resultLine){ guessMap.removeLayer(resultLine); resultLine = null; }
-  guessMap.setView([20,0], 2);
-  document.getElementById('confirmBtn').disabled = true;
-  document.getElementById('guessHint').textContent = 'Coloca un marcador en el mapa de la derecha.';
+}
+
+function updateScoreHud(){
+  const p = players[currentPlayerIdx] || players[0];
+  document.getElementById('scoreTotal').textContent = p ? p.total : 0;
+  if(mpEnabled && p) document.getElementById('turnPlayerName').textContent = p.name;
+}
+
+function startRound(){
+  currentPlayerIdx = 0;
+  roundGuesses = new Array(players.length).fill(null);
 
   const rng = isDailyMode ? dailyRng : Math.random;
   if(remaining.length === 0){
@@ -707,85 +820,140 @@ function startRound(){
   explorer.setView([current.lat + jitterLat, current.lon + jitterLon], 15);
 
   document.getElementById('roundNum').textContent = round + 1;
+
+  beginTurn();
+}
+
+function beginTurn(){
+  confirmed = false;
+  if(guessMarker){ guessMap.removeLayer(guessMarker); guessMarker = null; }
+  clearAllGuessMarkers();
+  guessMap.setView([20,0], 2);
+  document.getElementById('confirmBtn').disabled = true;
+
+  updateScoreHud();
+
+  if(players.length > 1){
+    showPassPhoneCard();
+  } else {
+    document.getElementById('guessHint').textContent = 'Coloca un marcador en el mapa de la derecha.';
+  }
+}
+
+function showPassPhoneCard(){
+  const p = players[currentPlayerIdx];
+  const card = document.getElementById('resultCard');
+  card.innerHTML = compassSVG() +
+    '<h2>Turno de</h2>' +
+    '<div class="place" style="font-size:1.3rem;">' + escapeHtml(p.name) + '</div>' +
+    '<p class="hint" style="margin:14px 0; line-height:1.5;">Pasa el celular a <b>' + escapeHtml(p.name) + '</b> y toca "Estoy listo" para ver el lugar y adivinar.</p>' +
+    '<button class="btn-primary" id="readyBtn">Estoy listo</button>';
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('readyBtn').addEventListener('click', function(){
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('guessHint').textContent = 'Turno de ' + p.name + ': coloca un marcador en el mapa.';
+  });
 }
 
 document.getElementById('confirmBtn').addEventListener('click', function(){
   if(!guessMarker || confirmed) return;
   confirmed = true;
-  const g = guessMarker.getLatLng();
-  const dist = haversine(g.lat, g.lng, current.lat, current.lon);
-  const pts = scoreFromDistance(dist);
-  totalScore += pts;
-  scores.push({name: current.name + ', ' + current.country, dist, pts});
+  roundGuesses[currentPlayerIdx] = guessMarker.getLatLng();
 
-  actualMarker = L.marker([current.lat, current.lon], {icon: actualIcon}).addTo(guessMap);
-  resultLine = L.polyline([g, [current.lat, current.lon]], {color:'#1B2A4A', weight:2, dashArray:'4,6'}).addTo(guessMap);
-  guessMap.fitBounds(resultLine.getBounds(), {padding:[60,60]});
-
-  document.getElementById('scoreTotal').textContent = totalScore;
-
-  let title = '¡Muy lejos!';
-  if(dist < 25) title = '¡Asombroso! Casi en el clavo.';
-  else if(dist < 200) title = '¡Excelente puntería!';
-  else if(dist < 800) title = 'Buen intento.';
-  else if(dist < 2500) title = 'Anduviste algo perdido.';
-
-  document.getElementById('resultTitle').textContent = title;
-  document.getElementById('resultPlace').textContent = current.name + ', ' + current.country;
-  document.getElementById('resultDistance').textContent = Math.round(dist).toLocaleString('es');
-  document.getElementById('resultPoints').textContent = pts.toLocaleString('es');
-
-  const compass = document.getElementById('compassIcon');
-  compass.classList.remove('spin');
-  void compass.offsetWidth;
-  compass.classList.add('spin');
-
-  document.getElementById('overlay').classList.add('show');
-});
-
-document.getElementById('nextBtn').addEventListener('click', function(){
-  document.getElementById('overlay').classList.remove('show');
-  round++;
-  if(round >= TOTAL_ROUNDS){
-    showFinal();
+  currentPlayerIdx++;
+  if(currentPlayerIdx < players.length){
+    beginTurn();
   } else {
-    startRound();
+    revealRound();
   }
 });
 
+function revealRound(){
+  guessMap.setView([20,0], 2);
+  const bounds = [];
+  const roundResults = [];
+
+  players.forEach((player, i) => {
+    const g = roundGuesses[i];
+    if(!g) return;
+    const dist = haversine(g.lat, g.lng, current.lat, current.lon);
+    const pts = scoreFromDistance(dist);
+    player.total += pts;
+    roundResults.push({name: player.name, color: player.color, dist, pts});
+
+    const icon = L.divIcon({className:'', html:'<div style="background:'+player.color+';width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px '+player.color+';"></div>', iconSize:[16,16]});
+    const marker = L.marker(g, {icon}).addTo(guessMap);
+    const line = L.polyline([g, [current.lat, current.lon]], {color: player.color, weight:2, dashArray:'4,6'}).addTo(guessMap);
+    guessMarkersThisRound.push(marker, line);
+    bounds.push([g.lat, g.lng]);
+  });
+
+  actualMarker = L.marker([current.lat, current.lon], {icon: actualIcon}).addTo(guessMap);
+  bounds.push([current.lat, current.lon]);
+  guessMap.fitBounds(bounds, {padding:[60,60]});
+
+  roundResults.sort((a,b) => a.dist - b.dist);
+
+  let rowsHtml = '';
+  roundResults.forEach((r, idx) => {
+    rowsHtml += '<div class="mp-round-row" style="border-left:4px solid '+r.color+';">' +
+      '<span class="pname">' + (idx===0 ? '🏆 ' : '') + escapeHtml(r.name) + '</span>' +
+      '<span>' + Math.round(r.dist).toLocaleString('es') + ' km · ' + r.pts.toLocaleString('es') + ' pts</span></div>';
+  });
+
+  const card = document.getElementById('resultCard');
+  card.innerHTML = compassSVG() +
+    '<h2>Ronda revelada</h2>' +
+    '<div class="place">' + escapeHtml(current.name) + ', ' + escapeHtml(current.country) + '</div>' +
+    '<div style="margin:14px 0;">' + rowsHtml + '</div>' +
+    '<button class="btn-primary" id="nextBtn">Siguiente ronda</button>';
+
+  document.getElementById('overlay').classList.add('show');
+  updateScoreHud();
+
+  document.getElementById('nextBtn').addEventListener('click', function(){
+    document.getElementById('overlay').classList.remove('show');
+    round++;
+    if(round >= TOTAL_ROUNDS){
+      showFinal();
+    } else {
+      startRound();
+    }
+  });
+}
+
+function ratingFor(total){
+  if(total > 20000) return 'Cartógrafo maestro';
+  if(total > 15000) return 'Trotamundos experto';
+  if(total > 9000) return 'Viajero avezado';
+  if(total > 4000) return 'Explorador en formación';
+  return 'Explorador novato';
+}
+
 function showFinal(){
   const card = document.getElementById('resultCard');
-  let list = '<div class="round-list">';
-  scores.forEach((s,i)=>{
-    list += `<div><span>${i+1}. ${s.name}</span><span>${Math.round(s.dist)} km · ${s.pts} pts</span></div>`;
+  const sorted = [...players].sort((a,b) => b.total - a.total);
+
+  let rowsHtml = '';
+  sorted.forEach((p, idx) => {
+    const medal = idx===0 ? '🥇 ' : idx===1 ? '🥈 ' : idx===2 ? '🥉 ' : '';
+    rowsHtml += '<div class="leaderboard-row ' + (idx===0 ? 'rank-1' : '') + '" style="border-left:4px solid ' + p.color + ';">' +
+      '<span><span class="rank-num">' + (idx+1) + '.</span>' + medal + escapeHtml(p.name) + '</span>' +
+      '<span style="font-family:\'JetBrains Mono\', monospace; font-weight:700;">' + p.total.toLocaleString('es') + ' pts</span></div>';
   });
-  list += '</div>';
 
-  let rating = 'Explorador novato';
-  if(totalScore > 20000) rating = 'Cartógrafo maestro';
-  else if(totalScore > 15000) rating = 'Trotamundos experto';
-  else if(totalScore > 9000) rating = 'Viajero avezado';
-  else if(totalScore > 4000) rating = 'Explorador en formación';
+  const subtitle = players.length > 1
+    ? ('🏆 ' + escapeHtml(sorted[0].name) + ' gana la partida')
+    : ratingFor(sorted[0].total);
 
-  card.innerHTML = `
-    <svg class="compass" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>
-      <polygon points="50,10 58,50 50,90 42,50" fill="#1B2A4A"/>
-      <circle cx="50" cy="50" r="4" fill="#B8863B"/>
-    </svg>
-    <h2>Partida terminada</h2>
-    <div class="place">${rating}</div>
-    <div class="stat-row">
-      <div class="stat"><span class="num">${totalScore.toLocaleString('es')}</span><span class="lbl">puntos totales</span></div>
-    </div>
-    ${list}
-    <button class="btn-primary" id="restartBtn">Jugar de nuevo</button>
-  `;
+  card.innerHTML = compassSVG() +
+    '<h2>Partida terminada</h2>' +
+    '<div class="place">' + subtitle + '</div>' +
+    '<div style="margin:16px 0;">' + rowsHtml + '</div>' +
+    '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>';
+
   document.getElementById('overlay').classList.add('show');
   document.getElementById('restartBtn').addEventListener('click', function(){
-    round = 0; totalScore = 0; scores = []; remaining = [];
-    document.getElementById('scoreTotal').textContent = '0';
-    document.getElementById('overlay').classList.remove('show');
     location.reload();
   });
 }
