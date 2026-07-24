@@ -145,6 +145,7 @@
     width:100%;
     background:#111;
     position:relative;
+    overflow:hidden;
   }
   pnx-photo-viewer{
     width:100%;
@@ -695,13 +696,13 @@ async function fetchNearestPanoramaxPhoto(lat, lon){
   return panoramic.length ? panoramic[0] : null;
 }
 
-function showPanorama(sequenceId, pictureId){
+function showPanorama(sequenceId, pictureId, endpoint){
   if(!customElements.get('pnx-photo-viewer')){
     setSvLoading('El visor de Panoramax no cargó (revisa tu conexión o la consola del navegador). Recarga la página para reintentar.');
     return;
   }
   document.getElementById('streetview').innerHTML =
-    '<pnx-photo-viewer endpoint="https://api.panoramax.xyz/api" sequence="' + sequenceId + '" picture="' + pictureId + '"></pnx-photo-viewer>';
+    '<pnx-photo-viewer endpoint="' + endpoint + '" sequence="' + sequenceId + '" picture="' + pictureId + '" widgets="false"></pnx-photo-viewer>';
 }
 
 async function findImageAndStart(){
@@ -718,7 +719,9 @@ async function findImageAndStart(){
         const dist = haversine(candidate.lat, candidate.lon, flat, flon);
         if(dist <= MAX_DISTANCE_KM){
           current = { name: candidate.name, country: candidate.country, lat: flat, lon: flon };
-          showPanorama(feature.collection, feature.id);
+          const viaLink = (feature.links || []).find(l => l.rel === 'via');
+          const endpoint = viaLink ? viaLink.href.replace(/\/$/, '') + '/api' : 'https://api.panoramax.xyz/api';
+          showPanorama(feature.collection, feature.id, endpoint);
           document.getElementById('roundNum').textContent = round + 1;
           return;
         }
