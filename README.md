@@ -1,26 +1,7 @@
 # Atlas Errante — PWA
 
-Juego de adivinar lugares del mundo. Explora con fotos reales a nivel de
-calle de **KartaView** (plataforma abierta, sin token) y adivina en un
-mapa de **OpenStreetMap**.
-
-## Sobre KartaView
-
-No necesitas cuenta, token ni tarjeta. Se usa el endpoint clásico y
-público de su API (`api.openstreetcam.org/1.0/list/nearby-photos/`) que
-acepta consultas de lectura sin autenticación.
-
-A diferencia de Street View o Mapillary, KartaView muestra **fotos
-individuales** (no panorámicas de 360°), así que el panel de "explorar"
-te deja pasar entre varias fotos cercanas con los botones ‹ › para
-hacerte una idea del lugar, en vez de girar una sola panorámica.
-
-## Cobertura
-
-KartaView tiene especial fuerza en el Sudeste Asiático y es más
-irregular en otras regiones. El juego ya maneja esto: prueba primero un
-radio chico (500 m), luego uno mediano (3 km) y uno grande (15 km); si
-no encuentra nada, salta automáticamente a otro lugar de la lista.
+Juego de adivinar lugares del mundo usando mapas de OpenStreetMap.
+100% gratuito y sin necesidad de ninguna clave, token o cuenta.
 
 ## Por qué necesitas subir esto a un servidor
 
