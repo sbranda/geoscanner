@@ -450,6 +450,13 @@
   }
   .badge-toast .badge-icon{ font-size:1.5rem; }
   .badge-toast .badge-name{ font-weight:700; color:var(--brass-dark); font-size:0.85rem; }
+
+  @keyframes markerDrop{
+    0%{ transform: translateY(-40px) scale(0.4); opacity:0; }
+    60%{ transform: translateY(6px) scale(1.15); opacity:1; }
+    100%{ transform: translateY(0) scale(1); opacity:1; }
+  }
+  .marker-animate{ animation: markerDrop 0.5s ease-out; }
 </style>
 </head>
 <body>
@@ -1309,6 +1316,21 @@ function clearAllGuessMarkers(){
   if(actualMarker){ guessMap.removeLayer(actualMarker); actualMarker = null; }
 }
 
+function animateGuessLine(map, startLatLng, endLatLng, color, duration){
+  const line = L.polyline([startLatLng, startLatLng], {color: color, weight:2, dashArray:'4,6'}).addTo(map);
+  const startTime = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const lat = startLatLng.lat + (endLatLng.lat - startLatLng.lat) * eased;
+    const lng = startLatLng.lng + (endLatLng.lng - startLatLng.lng) * eased;
+    line.setLatLngs([startLatLng, L.latLng(lat, lng)]);
+    if(t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+  return line;
+}
+
 function updateScoreHud(){
   const p = players[currentPlayerIdx] || players[0];
   document.getElementById('scoreTotal').textContent = p ? p.total : 0;
@@ -1502,7 +1524,7 @@ function revealRound(){
 
     const icon = L.divIcon({className:'', html:'<div style="background:'+player.color+';width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px '+player.color+';"></div>', iconSize:[16,16]});
     const marker = L.marker(g.latlng, {icon}).addTo(guessMap);
-    const line = L.polyline([g.latlng, [current.lat, current.lon]], {color: player.color, weight:2, dashArray:'4,6'}).addTo(guessMap);
+    const line = animateGuessLine(guessMap, g.latlng, L.latLng(current.lat, current.lon), player.color, 700);
     guessMarkersThisRound.push(marker, line);
     bounds.push([g.latlng.lat, g.latlng.lng]);
   });
@@ -1513,6 +1535,8 @@ function revealRound(){
   saveStats(stats);
 
   actualMarker = L.marker([current.lat, current.lon], {icon: actualIcon}).addTo(guessMap);
+  const actualEl = actualMarker.getElement();
+  if(actualEl) actualEl.classList.add('marker-animate');
   bounds.push([current.lat, current.lon]);
   guessMap.fitBounds(bounds, {padding:[60,60]});
 
