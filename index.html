@@ -390,7 +390,10 @@
   </div>
 
   <div class="controls">
-    <span class="hint" id="guessHint">Coloca un marcador en el mapa de la derecha.</span>
+    <div>
+      <span class="hint" id="guessHint">Coloca un marcador en el mapa de la derecha.</span>
+      <div class="hint" id="hintText" style="color:var(--brass-dark); font-weight:600; margin-top:4px;"></div>
+    </div>
     <button class="btn-primary" id="confirmBtn" disabled>Confirmar conjetura</button>
   </div>
 </main>
@@ -686,6 +689,7 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
 });
 
 document.getElementById('settingsBtn').addEventListener('click', function(){
+  clearHints();
   document.getElementById('catOverlay').classList.add('show');
   updateCatCount();
 });
@@ -747,11 +751,17 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
 
 // ---- Mapa explorador (OpenStreetMap sin etiquetas, vía CARTO) ----
 const explorer = L.map('mapExplorer', {zoomControl:true, attributionControl:true});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+const explorerTilesPlain = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   subdomains: 'abcd',
   maxZoom: 19
 }).addTo(explorer);
+const explorerTilesLabeled = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19
+});
+let roundCenter = null;
 
 const actualIcon = L.divIcon({className:'', html:'<div style="background:#2F6B62;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #2F6B62;"></div>', iconSize:[16,16]});
 const guessIcon = L.divIcon({className:'', html:'<div style="background:#B8863B;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #B8863B;"></div>', iconSize:[16,16]});
@@ -805,6 +815,55 @@ function updateScoreHud(){
   if(mpEnabled && p) document.getElementById('turnPlayerName').textContent = p.name;
 }
 
+// ---- Pistas progresivas: calles → terreno/ríos → continente → país, con penalización ----
+let hintTimeouts = [];
+let currentHintPenalty = 0;
+
+function resetExplorerView(){
+  if(explorer.hasLayer(explorerTilesLabeled)) explorer.removeLayer(explorerTilesLabeled);
+  if(!explorer.hasLayer(explorerTilesPlain)) explorerTilesPlain.addTo(explorer);
+  if(roundCenter) explorer.setView(roundCenter, 15);
+}
+
+function tierStreets(){
+  explorer.removeLayer(explorerTilesPlain);
+  explorerTilesLabeled.addTo(explorer);
+  return '🛣️ Pista: nombres de calles visibles';
+}
+function tierTerrain(){
+  explorer.setZoom(13);
+  return '🌊 Pista: se reveló más terreno alrededor (ríos, costas)';
+}
+function tierContinent(){
+  return '🌍 Pista: continente — ' + current.continent;
+}
+function tierCountry(){
+  return '🚩 Pista: país — ' + current.country;
+}
+
+const HINT_TIERS = [
+  { ms: 30000, cost: 300, apply: tierStreets },
+  { ms: 60000, cost: 400, apply: tierTerrain },
+  { ms: 90000, cost: 600, apply: tierContinent },
+  { ms: 120000, cost: 900, apply: tierCountry }
+];
+
+function clearHints(){
+  hintTimeouts.forEach(t => clearTimeout(t));
+  hintTimeouts = [];
+  document.getElementById('hintText').textContent = '';
+}
+
+function scheduleHints(){
+  HINT_TIERS.forEach(tier => {
+    hintTimeouts.push(setTimeout(() => {
+      currentHintPenalty += tier.cost;
+      const label = tier.apply();
+      document.getElementById('hintText').textContent = label + ' (−' + currentHintPenalty + ' pts acumulado)';
+    }, tier.ms));
+  });
+}
+
 function startRound(){
   currentPlayerIdx = 0;
   roundGuesses = new Array(players.length).fill(null);
@@ -817,7 +876,7 @@ function startRound(){
 
   const jitterLat = (rng()-0.5) * 0.01;
   const jitterLon = (rng()-0.5) * 0.01;
-  explorer.setView([current.lat + jitterLat, current.lon + jitterLon], 15);
+  roundCenter = [current.lat + jitterLat, current.lon + jitterLon];
 
   document.getElementById('roundNum').textContent = round + 1;
 
@@ -830,6 +889,9 @@ function beginTurn(){
   clearAllGuessMarkers();
   guessMap.setView([20,0], 2);
   document.getElementById('confirmBtn').disabled = true;
+  resetExplorerView();
+  clearHints();
+  currentHintPenalty = 0;
 
   updateScoreHud();
 
@@ -837,6 +899,7 @@ function beginTurn(){
     showPassPhoneCard();
   } else {
     document.getElementById('guessHint').textContent = 'Coloca un marcador en el mapa de la derecha.';
+    scheduleHints();
   }
 }
 
@@ -852,13 +915,16 @@ function showPassPhoneCard(){
   document.getElementById('readyBtn').addEventListener('click', function(){
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('guessHint').textContent = 'Turno de ' + p.name + ': coloca un marcador en el mapa.';
+    scheduleHints();
   });
 }
 
 document.getElementById('confirmBtn').addEventListener('click', function(){
   if(!guessMarker || confirmed) return;
   confirmed = true;
-  roundGuesses[currentPlayerIdx] = guessMarker.getLatLng();
+  const penalty = currentHintPenalty;
+  clearHints();
+  roundGuesses[currentPlayerIdx] = { latlng: guessMarker.getLatLng(), penalty: penalty };
 
   currentPlayerIdx++;
   if(currentPlayerIdx < players.length){
@@ -876,16 +942,17 @@ function revealRound(){
   players.forEach((player, i) => {
     const g = roundGuesses[i];
     if(!g) return;
-    const dist = haversine(g.lat, g.lng, current.lat, current.lon);
-    const pts = scoreFromDistance(dist);
+    const dist = haversine(g.latlng.lat, g.latlng.lng, current.lat, current.lon);
+    const rawPts = scoreFromDistance(dist);
+    const pts = Math.max(0, rawPts - (g.penalty || 0));
     player.total += pts;
-    roundResults.push({name: player.name, color: player.color, dist, pts});
+    roundResults.push({name: player.name, color: player.color, dist, pts, penalty: g.penalty || 0});
 
     const icon = L.divIcon({className:'', html:'<div style="background:'+player.color+';width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px '+player.color+';"></div>', iconSize:[16,16]});
-    const marker = L.marker(g, {icon}).addTo(guessMap);
-    const line = L.polyline([g, [current.lat, current.lon]], {color: player.color, weight:2, dashArray:'4,6'}).addTo(guessMap);
+    const marker = L.marker(g.latlng, {icon}).addTo(guessMap);
+    const line = L.polyline([g.latlng, [current.lat, current.lon]], {color: player.color, weight:2, dashArray:'4,6'}).addTo(guessMap);
     guessMarkersThisRound.push(marker, line);
-    bounds.push([g.lat, g.lng]);
+    bounds.push([g.latlng.lat, g.latlng.lng]);
   });
 
   actualMarker = L.marker([current.lat, current.lon], {icon: actualIcon}).addTo(guessMap);
@@ -896,9 +963,10 @@ function revealRound(){
 
   let rowsHtml = '';
   roundResults.forEach((r, idx) => {
+    const penaltyNote = r.penalty > 0 ? ' <span style="opacity:0.7;">(−' + r.penalty + ' por pistas)</span>' : '';
     rowsHtml += '<div class="mp-round-row" style="border-left:4px solid '+r.color+';">' +
       '<span class="pname">' + (idx===0 ? '🏆 ' : '') + escapeHtml(r.name) + '</span>' +
-      '<span>' + Math.round(r.dist).toLocaleString('es') + ' km · ' + r.pts.toLocaleString('es') + ' pts</span></div>';
+      '<span>' + Math.round(r.dist).toLocaleString('es') + ' km · ' + r.pts.toLocaleString('es') + ' pts' + penaltyNote + '</span></div>';
   });
 
   const card = document.getElementById('resultCard');
