@@ -383,7 +383,7 @@ function setSvLoading(msg){
 }
 
 async function fetchNearestPanoramaxPhoto(lat, lon){
-  const url = 'https://api.panoramax.xyz/api/search?place_position=' + lon + ',' + lat + '&limit=1';
+  const url = 'https://api.panoramax.xyz/api/search?place_position=' + lon + ',' + lat + '&limit=10';
   const res = await fetch(url);
   if(!res.ok){
     let detail = '';
@@ -391,7 +391,14 @@ async function fetchNearestPanoramaxPhoto(lat, lon){
     throw new Error('HTTP ' + res.status + ' — ' + detail.slice(0,200));
   }
   const data = await res.json();
-  return (data.features && data.features.length) ? data.features[0] : null;
+  if(!data.features || !data.features.length) return null;
+  // Solo aceptamos panorámicas 360° reales; las fotos planas se ven
+  // distorsionadas/raras en el visor si se muestran como si fueran 360°.
+  const panoramic = data.features.filter(f => {
+    const io = f.properties && f.properties['pers:interior_orientation'];
+    return io && Number(io.field_of_view) === 360;
+  });
+  return panoramic.length ? panoramic[0] : null;
 }
 
 function showPanorama(sequenceId, pictureId){
