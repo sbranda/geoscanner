@@ -18,7 +18,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<script type="module" src="https://cdn.jsdelivr.net/npm/@panoramax/web-viewer@4/build/index.js"></script>
 <style>
   :root{
     --ink:#1B2A4A;
@@ -134,35 +133,10 @@
     text-transform:uppercase;
     color: var(--brass-dark);
   }
-  #mapGuess{
+  #mapExplorer, #mapGuess{
     height: 46vh;
     min-height:320px;
     width:100%;
-  }
-  #streetview{
-    height: 46vh;
-    min-height:320px;
-    width:100%;
-    background:#111;
-    position:relative;
-    overflow:hidden;
-  }
-  pnx-photo-viewer{
-    width:100%;
-    height:100%;
-    display:block;
-  }
-  #streetview .loading-msg{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    height:100%;
-    font-family:'JetBrains Mono', monospace;
-    color:#8a7f6a;
-    font-size:0.85rem;
-    text-align:center;
-    padding:20px;
-    background:#dcd3bd;
   }
 
   .controls{
@@ -355,14 +329,12 @@
 </header>
 
 <main>
-  <p class="instructions">Mira alrededor con fotos 360° reales de la comunidad Panoramax — sin nombres, sin letreros — y marca en el mapa de la derecha dónde crees que está.</p>
+  <p class="instructions">Explora el terreno a la izquierda — sin nombres, sin letreros — y marca en el mapa de la derecha dónde crees que está. Cuanto más cerca, más puntos.</p>
 
   <div class="board">
     <div class="panel">
-      <div class="panel-label"><span class="eyebrow">El lugar</span> Mira alrededor</div>
-      <div id="streetview">
-        <div class="loading-msg" id="svLoading">Buscando panorámicas de Panoramax cercanas…</div>
-      </div>
+      <div class="panel-label"><span class="eyebrow">El lugar</span> Explora sin pistas</div>
+      <div id="mapExplorer"></div>
     </div>
     <div class="panel">
       <div class="panel-label"><span class="eyebrow">Tu conjetura</span> Toca el mapa para marcar</div>
@@ -679,71 +651,13 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
   maxZoom: 19
 }).addTo(guessMap);
 
-// ---- Panoramax: fotos 360° reales, API pública sin token ----
-// Usamos una sola instancia estable (OSM Francia) en vez del catálogo
-// federado, para evitar el desajuste de endpoint que causaba que el
-// visor se quedara en gris tras mostrar la miniatura.
-const PANORAMAX_ENDPOINT = 'https://panoramax.openstreetmap.fr/api';
-const MAX_DISTANCE_KM = 300; // si la foto 360 más cercana está más lejos, probamos otro lugar
-
-function setSvLoading(msg){
-  const el = document.getElementById('streetview');
-  el.innerHTML = '<div class="loading-msg" id="svLoading">' + msg + '</div>';
-}
-
-async function fetchNearestPanoramaxPhoto(lat, lon){
-  const url = PANORAMAX_ENDPOINT + '/search?place_position=' + lon + ',' + lat + '&limit=10';
-  const res = await fetch(url);
-  if(!res.ok){
-    let detail = '';
-    try{ detail = await res.text(); }catch(e){}
-    throw new Error('HTTP ' + res.status + ' — ' + detail.slice(0,200));
-  }
-  const data = await res.json();
-  if(!data.features || !data.features.length) return null;
-  const panoramic = data.features.filter(f => {
-    const io = f.properties && f.properties['pers:interior_orientation'];
-    return io && Number(io.field_of_view) === 360;
-  });
-  return panoramic.length ? panoramic[0] : null;
-}
-
-function showPanorama(sequenceId, pictureId){
-  if(!customElements.get('pnx-photo-viewer')){
-    setSvLoading('El visor de Panoramax no cargó (revisa tu conexión o la consola del navegador). Recarga la página para reintentar.');
-    return;
-  }
-  document.getElementById('streetview').innerHTML =
-    '<pnx-photo-viewer endpoint="' + PANORAMAX_ENDPOINT + '" sequence="' + sequenceId + '" picture="' + pictureId + '" widgets="false"></pnx-photo-viewer>';
-}
-
-async function findImageAndStart(){
-  setSvLoading('Buscando panorámicas de Panoramax cercanas…');
-  for(let tries=0; tries<30; tries++){
-    if(remaining.length === 0){
-      remaining = isDailyMode ? shuffleSeeded(pool.length ? pool : LOCATIONS, dailyRng) : shuffle(pool.length ? pool : LOCATIONS);
-    }
-    const candidate = remaining.pop();
-    try{
-      const feature = await fetchNearestPanoramaxPhoto(candidate.lat, candidate.lon);
-      if(feature){
-        const [flon, flat] = feature.geometry.coordinates;
-        const dist = haversine(candidate.lat, candidate.lon, flat, flon);
-        if(dist <= MAX_DISTANCE_KM){
-          current = { name: candidate.name, country: candidate.country, lat: flat, lon: flon };
-          showPanorama(feature.collection, feature.id);
-          document.getElementById('roundNum').textContent = round + 1;
-          return;
-        }
-      }
-    } catch(err){
-      console.warn('Error buscando en Panoramax:', err);
-      setSvLoading('Error al consultar Panoramax: ' + (err.message || err));
-      return;
-    }
-  }
-  setSvLoading('No se encontró cobertura de Panoramax cercana tras varios intentos con esta categoría. Prueba con "Todos" o "Mi continente: Europa", donde hay más cobertura, o recarga para reintentar.');
-}
+// ---- Mapa explorador (OpenStreetMap sin etiquetas, vía CARTO) ----
+const explorer = L.map('mapExplorer', {zoomControl:true, attributionControl:true});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(explorer);
 
 const actualIcon = L.divIcon({className:'', html:'<div style="background:#2F6B62;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #2F6B62;"></div>', iconSize:[16,16]});
 const guessIcon = L.divIcon({className:'', html:'<div style="background:#B8863B;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px #B8863B;"></div>', iconSize:[16,16]});
@@ -781,7 +695,18 @@ function startRound(){
   guessMap.setView([20,0], 2);
   document.getElementById('confirmBtn').disabled = true;
   document.getElementById('guessHint').textContent = 'Coloca un marcador en el mapa de la derecha.';
-  findImageAndStart();
+
+  const rng = isDailyMode ? dailyRng : Math.random;
+  if(remaining.length === 0){
+    remaining = isDailyMode ? shuffleSeeded(pool.length ? pool : LOCATIONS, dailyRng) : shuffle(pool.length ? pool : LOCATIONS);
+  }
+  current = remaining.pop();
+
+  const jitterLat = (rng()-0.5) * 0.01;
+  const jitterLon = (rng()-0.5) * 0.01;
+  explorer.setView([current.lat + jitterLat, current.lon + jitterLon], 15);
+
+  document.getElementById('roundNum').textContent = round + 1;
 }
 
 document.getElementById('confirmBtn').addEventListener('click', function(){
@@ -866,10 +791,12 @@ function showFinal(){
 }
 
 window.addEventListener('resize', function(){
+  explorer.invalidateSize();
   guessMap.invalidateSize();
 });
 
 setTimeout(function(){
+  explorer.invalidateSize();
   guessMap.invalidateSize();
 }, 200);
 
