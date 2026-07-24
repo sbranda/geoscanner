@@ -459,6 +459,14 @@ const LOCATIONS = [
   {name:"Roma", country:"Italia", lat:41.9028, lon:12.4964, continent:"Europa", tags:["capital"]},
   {name:"Estambul", country:"Turquía", lat:41.0082, lon:28.9784, continent:"Europa", tags:[]},
   {name:"Capadocia", country:"Turquía", lat:38.6431, lon:34.8286, continent:"Europa", tags:["naturaleza"]},
+  {name:"Lyon", country:"Francia", lat:45.7640, lon:4.8357, continent:"Europa", tags:[]},
+  {name:"Marsella", country:"Francia", lat:43.2965, lon:5.3698, continent:"Europa", tags:[]},
+  {name:"Burdeos", country:"Francia", lat:44.8378, lon:-0.5792, continent:"Europa", tags:[]},
+  {name:"Toulouse", country:"Francia", lat:43.6047, lon:1.4442, continent:"Europa", tags:[]},
+  {name:"Estrasburgo", country:"Francia", lat:48.5734, lon:7.7521, continent:"Europa", tags:[]},
+  {name:"Nantes", country:"Francia", lat:47.2184, lon:-1.5536, continent:"Europa", tags:[]},
+  {name:"Niza", country:"Francia", lat:43.7102, lon:7.2620, continent:"Europa", tags:[]},
+  {name:"Lille", country:"Francia", lat:50.6292, lon:3.0573, continent:"Europa", tags:[]},
 
   // --- África ---
   {name:"Marrakech", country:"Marruecos", lat:31.6295, lon:-7.9811, continent:"África", tags:[]},
@@ -672,7 +680,11 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
 }).addTo(guessMap);
 
 // ---- Panoramax: fotos 360° reales, API pública sin token ----
-const MAX_DISTANCE_KM = 250; // si la foto 360 más cercana está más lejos, probamos otro lugar
+// Usamos una sola instancia estable (OSM Francia) en vez del catálogo
+// federado, para evitar el desajuste de endpoint que causaba que el
+// visor se quedara en gris tras mostrar la miniatura.
+const PANORAMAX_ENDPOINT = 'https://panoramax.openstreetmap.fr/api';
+const MAX_DISTANCE_KM = 300; // si la foto 360 más cercana está más lejos, probamos otro lugar
 
 function setSvLoading(msg){
   const el = document.getElementById('streetview');
@@ -680,7 +692,7 @@ function setSvLoading(msg){
 }
 
 async function fetchNearestPanoramaxPhoto(lat, lon){
-  const url = 'https://api.panoramax.xyz/api/search?place_position=' + lon + ',' + lat + '&limit=10';
+  const url = PANORAMAX_ENDPOINT + '/search?place_position=' + lon + ',' + lat + '&limit=10';
   const res = await fetch(url);
   if(!res.ok){
     let detail = '';
@@ -696,13 +708,13 @@ async function fetchNearestPanoramaxPhoto(lat, lon){
   return panoramic.length ? panoramic[0] : null;
 }
 
-function showPanorama(sequenceId, pictureId, endpoint){
+function showPanorama(sequenceId, pictureId){
   if(!customElements.get('pnx-photo-viewer')){
     setSvLoading('El visor de Panoramax no cargó (revisa tu conexión o la consola del navegador). Recarga la página para reintentar.');
     return;
   }
   document.getElementById('streetview').innerHTML =
-    '<pnx-photo-viewer endpoint="' + endpoint + '" sequence="' + sequenceId + '" picture="' + pictureId + '" widgets="false"></pnx-photo-viewer>';
+    '<pnx-photo-viewer endpoint="' + PANORAMAX_ENDPOINT + '" sequence="' + sequenceId + '" picture="' + pictureId + '" widgets="false"></pnx-photo-viewer>';
 }
 
 async function findImageAndStart(){
@@ -719,9 +731,7 @@ async function findImageAndStart(){
         const dist = haversine(candidate.lat, candidate.lon, flat, flon);
         if(dist <= MAX_DISTANCE_KM){
           current = { name: candidate.name, country: candidate.country, lat: flat, lon: flon };
-          const viaLink = (feature.links || []).find(l => l.rel === 'via');
-          const endpoint = viaLink ? viaLink.href.replace(/\/$/, '') + '/api' : 'https://api.panoramax.xyz/api';
-          showPanorama(feature.collection, feature.id, endpoint);
+          showPanorama(feature.collection, feature.id);
           document.getElementById('roundNum').textContent = round + 1;
           return;
         }
