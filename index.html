@@ -423,6 +423,33 @@
     font-weight:700;
     color:var(--brass-dark);
   }
+  .badge-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 12px;
+    border-radius:3px;
+    margin-bottom:8px;
+    background: rgba(184,134,59,0.06);
+  }
+  .badge-row.locked{ opacity:0.4; }
+  .badge-row .badge-icon{ font-size:1.6rem; width:32px; text-align:center; flex-shrink:0; }
+  .badge-row .badge-info{ flex:1; }
+  .badge-row .badge-name{ font-weight:700; font-size:0.88rem; color:var(--ink); }
+  .badge-row .badge-desc{ font-size:0.76rem; color:#8a7f6a; }
+  .badge-toast{
+    background: rgba(184,134,59,0.15);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    padding:10px 12px;
+    margin-bottom:8px;
+    text-align:left;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .badge-toast .badge-icon{ font-size:1.5rem; }
+  .badge-toast .badge-name{ font-weight:700; color:var(--brass-dark); font-size:0.85rem; }
 </style>
 </head>
 <body>
@@ -480,6 +507,7 @@
       <button class="tab-btn" data-tab="dificultad">🎯 Dificultad</button>
       <button class="tab-btn" data-tab="pistas">💡 Pistas</button>
       <button class="tab-btn" data-tab="jugadores">👥 Jugadores</button>
+      <button class="tab-btn" data-tab="logros">🎖 Logros</button>
       <button class="tab-btn" data-tab="historial">📜 Historial</button>
     </div>
 
@@ -551,6 +579,10 @@
         <div id="mpNameInputs"></div>
       </div>
       <p class="hint" id="mpEmptyHint" style="margin-top:20px;">Modo para un jugador (por defecto). Actívalo arriba si van a jugar varios pasándose el celular.</p>
+    </div>
+
+    <div class="tab-panel" data-panel="logros">
+      <div id="achievementsList" style="text-align:left;"></div>
     </div>
 
     <div class="tab-panel" data-panel="historial">
@@ -769,6 +801,80 @@ function saveHistoryEntry(entry){
 function clearHistory(){
   try{ localStorage.removeItem(HISTORY_KEY); } catch(e){}
   renderHistoryList();
+}
+
+// ---- Logros / insignias (localStorage) ----
+const STATS_KEY = 'atlasErrante_stats';
+const ACHIEVEMENTS_KEY = 'atlasErrante_achievements';
+
+function getStats(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STATS_KEY) || '{}');
+    return Object.assign({
+      totalGuesses: 0,
+      closeGuesses50: 0,
+      closeGuesses5: 0,
+      continentsPlayed: [],
+      gamesCompleted: 0,
+      dailyDatesPlayed: [],
+      maxPlayersUsed: 1,
+      maxRoundsSingleGame: 0
+    }, s);
+  } catch(e){
+    return { totalGuesses:0, closeGuesses50:0, closeGuesses5:0, continentsPlayed:[], gamesCompleted:0, dailyDatesPlayed:[], maxPlayersUsed:1, maxRoundsSingleGame:0 };
+  }
+}
+
+function saveStats(stats){
+  try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch(e){}
+}
+
+function getUnlockedAchievements(){
+  try{ return JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY) || '[]'); } catch(e){ return []; }
+}
+
+function saveUnlockedAchievements(list){
+  try{ localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(list)); } catch(e){}
+}
+
+const ACHIEVEMENTS = [
+  { id:'primera', icon:'🎮', name:'Primera partida', desc:'Completa tu primera partida', check: s => s.gamesCompleted >= 1 },
+  { id:'punteria50', icon:'🎯', name:'Puntería fina', desc:'10 aciertos a menos de 50 km', check: s => s.closeGuesses50 >= 10 },
+  { id:'francotirador', icon:'🔬', name:'Francotirador', desc:'Un acierto a menos de 5 km', check: s => s.closeGuesses5 >= 1 },
+  { id:'continentes', icon:'🌍', name:'Vueltas al mundo', desc:'Juega una ronda en cada uno de los 6 continentes', check: s => s.continentsPlayed.length >= 6 },
+  { id:'constancia', icon:'🏅', name:'Constancia', desc:'50 conjeturas en total', check: s => s.totalGuesses >= 50 },
+  { id:'centurion', icon:'💯', name:'Centurión', desc:'100 conjeturas en total', check: s => s.totalGuesses >= 100 },
+  { id:'sinayuditas', icon:'🧭', name:'Sin ayuditas', desc:'Completa una partida de 5+ rondas sin usar ninguna pista', check: s => s.hadNoHintGame === true },
+  { id:'maraton', icon:'🏃', name:'Maratonista', desc:'Completa una partida de 30 o más rondas', check: s => s.maxRoundsSingleGame >= 30 },
+  { id:'fiesta', icon:'👥', name:'Fiesta', desc:'Juega en multijugador con 4 o más personas', check: s => s.maxPlayersUsed >= 4 },
+  { id:'ritual', icon:'📅', name:'Ritual diario', desc:'Juega el desafío diario en 5 días distintos', check: s => s.dailyDatesPlayed.length >= 5 },
+  { id:'maestro', icon:'🏆', name:'Cartógrafo maestro', desc:'Supera 20.000 puntos en una sola partida', check: s => s.bestSingleGameScore >= 20000 }
+];
+
+function checkAchievements(stats){
+  const unlocked = getUnlockedAchievements();
+  const newlyUnlocked = [];
+  ACHIEVEMENTS.forEach(a => {
+    if(!unlocked.includes(a.id) && a.check(stats)){
+      unlocked.push(a.id);
+      newlyUnlocked.push(a);
+    }
+  });
+  saveUnlockedAchievements(unlocked);
+  return newlyUnlocked;
+}
+
+function renderAchievementsList(){
+  const unlocked = getUnlockedAchievements();
+  const container = document.getElementById('achievementsList');
+  container.innerHTML = ACHIEVEMENTS.map(a => {
+    const isUnlocked = unlocked.includes(a.id);
+    return '<div class="badge-row' + (isUnlocked ? '' : ' locked') + '">' +
+      '<div class="badge-icon">' + a.icon + '</div>' +
+      '<div class="badge-info"><div class="badge-name">' + a.name + '</div><div class="badge-desc">' + a.desc + '</div></div>' +
+      (isUnlocked ? '<div style="font-size:1.1rem;">✅</div>' : '') +
+      '</div>';
+  }).join('');
 }
 
 function renderHistoryList(){
@@ -1055,6 +1161,7 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
 
   totalRoundsTarget = selectedRounds === 'inf' ? Infinity : selectedRounds;
   document.getElementById('roundTotal').textContent = selectedRounds === 'inf' ? '∞' : selectedRounds;
+  anyHintUsedThisGame = false;
 
   round = 0; remaining = [];
   startRound();
@@ -1070,11 +1177,13 @@ document.getElementById('settingsBtn').addEventListener('click', function(){
   updateCatCount();
   renderHighScoreDisplay();
   renderHistoryList();
+  renderAchievementsList();
 });
 
 updateCatCount();
 renderHighScoreDisplay();
 renderHistoryList();
+renderAchievementsList();
 
 function shuffle(arr){
   const a = arr.slice();
@@ -1209,6 +1318,7 @@ function updateScoreHud(){
 // ---- Pistas progresivas: calles → terreno/ríos → continente → país, con penalización ----
 let hintTimeouts = [];
 let currentHintPenalty = 0;
+let anyHintUsedThisGame = false;
 
 function resetExplorerView(){
   if(explorer.hasLayer(explorerTilesLabeled)) explorer.removeLayer(explorerTilesLabeled);
@@ -1359,6 +1469,7 @@ document.getElementById('confirmBtn').addEventListener('click', function(){
   if(!guessMarker || confirmed) return;
   confirmed = true;
   const penalty = currentHintPenalty;
+  if(penalty > 0) anyHintUsedThisGame = true;
   clearHints();
   roundGuesses[currentPlayerIdx] = { latlng: guessMarker.getLatLng(), penalty: penalty };
 
@@ -1374,6 +1485,7 @@ function revealRound(){
   guessMap.setView([20,0], 2);
   const bounds = [];
   const roundResults = [];
+  const stats = getStats();
 
   players.forEach((player, i) => {
     const g = roundGuesses[i];
@@ -1384,12 +1496,21 @@ function revealRound(){
     player.total += pts;
     roundResults.push({name: player.name, color: player.color, dist, pts, penalty: g.penalty || 0});
 
+    stats.totalGuesses++;
+    if(dist < 50) stats.closeGuesses50++;
+    if(dist < 5) stats.closeGuesses5++;
+
     const icon = L.divIcon({className:'', html:'<div style="background:'+player.color+';width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px '+player.color+';"></div>', iconSize:[16,16]});
     const marker = L.marker(g.latlng, {icon}).addTo(guessMap);
     const line = L.polyline([g.latlng, [current.lat, current.lon]], {color: player.color, weight:2, dashArray:'4,6'}).addTo(guessMap);
     guessMarkersThisRound.push(marker, line);
     bounds.push([g.latlng.lat, g.latlng.lng]);
   });
+
+  if(current.continent && !stats.continentsPlayed.includes(current.continent)){
+    stats.continentsPlayed.push(current.continent);
+  }
+  saveStats(stats);
 
   actualMarker = L.marker([current.lat, current.lon], {icon: actualIcon}).addTo(guessMap);
   bounds.push([current.lat, current.lon]);
@@ -1451,6 +1572,19 @@ function showFinal(){
   const isNewRecord = sorted[0].total > previousHighScore;
   if(isNewRecord){ setHighScore(sorted[0].total); }
 
+  const stats = getStats();
+  stats.gamesCompleted++;
+  stats.maxPlayersUsed = Math.max(stats.maxPlayersUsed, players.length);
+  stats.maxRoundsSingleGame = Math.max(stats.maxRoundsSingleGame, round);
+  stats.bestSingleGameScore = Math.max(stats.bestSingleGameScore || 0, sorted[0].total);
+  if(!anyHintUsedThisGame && round >= 5){ stats.hadNoHintGame = true; }
+  if(isDailyMode){
+    const todayStr = todayDateString();
+    if(!stats.dailyDatesPlayed.includes(todayStr)) stats.dailyDatesPlayed.push(todayStr);
+  }
+  saveStats(stats);
+  const newlyUnlocked = checkAchievements(stats);
+
   saveHistoryEntry({
     date: new Date().toISOString(),
     category: selectedCategory,
@@ -1476,10 +1610,15 @@ function showFinal(){
     ? '<div style="background:rgba(184,134,59,0.15); border:1px solid var(--brass); border-radius:4px; padding:8px 12px; margin-bottom:12px; font-weight:700; color:var(--brass-dark);">🏆 ¡Nuevo récord histórico!</div>'
     : '<div class="hint" style="margin-bottom:12px;">Mejor puntaje histórico: ' + Math.max(previousHighScore, sorted[0].total).toLocaleString('es') + ' pts</div>';
 
+  const badgesHtml = newlyUnlocked.map(a =>
+    '<div class="badge-toast"><span class="badge-icon">' + a.icon + '</span><div><div class="badge-name">¡Logro desbloqueado!</div><div>' + a.name + '</div></div></div>'
+  ).join('');
+
   card.innerHTML = compassSVG() +
     '<h2>Partida terminada</h2>' +
     '<div class="place">' + subtitle + '</div>' +
     recordBanner +
+    badgesHtml +
     '<div style="margin:16px 0;">' + rowsHtml + '</div>' +
     '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>';
 
