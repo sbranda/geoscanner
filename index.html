@@ -1564,6 +1564,26 @@ function ratingFor(total){
   return 'Explorador novato';
 }
 
+function buildShareText(sortedPlayers, category, rounds){
+  const catLabel = CATEGORY_LABELS[category] || category;
+  const dateStr = new Date().toLocaleDateString('es', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const lines = ['🧭 Atlas Errante — ' + dateStr, catLabel + ' · ' + rounds + ' rondas', ''];
+
+  if(sortedPlayers.length > 1){
+    sortedPlayers.forEach((p, idx) => {
+      const medal = idx===0 ? '🥇' : idx===1 ? '🥈' : idx===2 ? '🥉' : '▪️';
+      lines.push(medal + ' ' + p.name + ': ' + p.total.toLocaleString('es') + ' pts');
+    });
+  } else {
+    lines.push('Puntaje: ' + sortedPlayers[0].total.toLocaleString('es') + ' pts');
+    lines.push(ratingFor(sortedPlayers[0].total));
+  }
+
+  lines.push('');
+  lines.push('¿Puedes superarlo? 🌍');
+  return lines.join('\n');
+}
+
 function showFinal(){
   const card = document.getElementById('resultCard');
   const sorted = [...players].sort((a,b) => b.total - a.total);
@@ -1620,11 +1640,32 @@ function showFinal(){
     recordBanner +
     badgesHtml +
     '<div style="margin:16px 0;">' + rowsHtml + '</div>' +
-    '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>';
+    '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>' +
+    '<div style="margin-top:10px;"><button class="btn-ghost" id="shareScoreBtn">📤 Compartir puntaje</button></div>';
 
   document.getElementById('overlay').classList.add('show');
   document.getElementById('restartBtn').addEventListener('click', function(){
     location.reload();
+  });
+
+  document.getElementById('shareScoreBtn').addEventListener('click', async function(){
+    const text = buildShareText(sorted, selectedCategory, round);
+    const btn = this;
+    if(navigator.share){
+      try{ await navigator.share({ text: text }); }
+      catch(e){ /* el usuario canceló, no hacemos nada */ }
+    } else if(navigator.clipboard && navigator.clipboard.writeText){
+      try{
+        await navigator.clipboard.writeText(text);
+        const original = btn.textContent;
+        btn.textContent = '✅ ¡Copiado!';
+        setTimeout(() => { btn.textContent = original; }, 2000);
+      } catch(e){
+        window.prompt('Copia tu resultado:', text);
+      }
+    } else {
+      window.prompt('Copia tu resultado:', text);
+    }
   });
 }
 
