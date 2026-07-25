@@ -721,13 +721,6 @@
         <button class="cat-btn" data-difficulty="dificil">🟠 Difícil</button>
         <button class="cat-btn" data-difficulty="experto">🔴 Experto</button>
       </div>
-      <div class="section-label">Cantidad de rondas</div>
-      <div class="cat-grid" id="roundsGrid">
-        <button class="cat-btn selected" data-rounds="5">5 rondas</button>
-        <button class="cat-btn" data-rounds="10">10 rondas</button>
-        <button class="cat-btn" data-rounds="20">20 rondas</button>
-        <button class="cat-btn" data-rounds="inf">♾️ Sin límite</button>
-      </div>
       <button class="cat-btn" id="speedModeToggleBtn" style="width:100%; margin-top:16px;">⚡ Modo velocidad (desactivado)</button>
       <p class="hint" style="margin-top:6px; margin-bottom:16px;">Suma hasta +500 pts extra por responder rápido (el bono baja a 0 después de 60 segundos).</p>
 
@@ -814,7 +807,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -986,8 +979,7 @@ let roundGuesses = [];
 
 const DIFFICULTY_ZOOM = { facil: 17, normal: 15, dificil: 13, experto: 11 };
 let selectedDifficulty = 'normal';
-let selectedRounds = 5;
-let totalRoundsTarget = 5;
+const totalRoundsTarget = 5;
 let hintsEnabled = true;
 let speedModeEnabled = false;
 let resultDelayMs = 800;
@@ -1340,14 +1332,6 @@ document.querySelectorAll('.continent-btn').forEach(btn => {
   });
 });
 
-document.querySelectorAll('#roundsGrid .cat-btn').forEach(btn => {
-  btn.addEventListener('click', function(){
-    document.querySelectorAll('#roundsGrid .cat-btn').forEach(b => b.classList.remove('selected'));
-    this.classList.add('selected');
-    selectedRounds = this.dataset.rounds === 'inf' ? 'inf' : parseInt(this.dataset.rounds, 10);
-  });
-});
-
 document.getElementById('hintsToggleBtn').addEventListener('click', function(){
   hintsEnabled = !hintsEnabled;
   this.classList.toggle('selected', hintsEnabled);
@@ -1446,7 +1430,6 @@ function saveGameConfig(){
     selectedCategory: selectedCategory,
     selectedContinent: selectedContinent,
     selectedDifficulty: selectedDifficulty,
-    selectedRounds: selectedRounds,
     hintsEnabled: hintsEnabled,
     hintTimes: hintTimes,
     speedModeEnabled: speedModeEnabled,
@@ -1495,13 +1478,6 @@ function applyGameConfig(cfg){
     selectedDifficulty = cfg.selectedDifficulty;
     document.querySelectorAll('#difficultyGrid .cat-btn').forEach(b => {
       b.classList.toggle('selected', b.dataset.difficulty === selectedDifficulty);
-    });
-  }
-  if(cfg.selectedRounds !== undefined){
-    selectedRounds = cfg.selectedRounds;
-    document.querySelectorAll('#roundsGrid .cat-btn').forEach(b => {
-      const val = b.dataset.rounds === 'inf' ? 'inf' : parseInt(b.dataset.rounds, 10);
-      b.classList.toggle('selected', val === selectedRounds);
     });
   }
   if(cfg.hintTimes){
@@ -1557,8 +1533,7 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
 
   document.getElementById('turnIndicator').style.display = mpEnabled ? 'inline-block' : 'none';
 
-  totalRoundsTarget = selectedRounds === 'inf' ? Infinity : selectedRounds;
-  document.getElementById('roundTotal').textContent = selectedRounds === 'inf' ? '∞' : selectedRounds;
+  document.getElementById('roundTotal').textContent = totalRoundsTarget;
   anyHintUsedThisGame = false;
 
   round = 0; remaining = [];
@@ -2381,8 +2356,7 @@ function revealRound(){
       '<h2>Ronda revelada</h2>' +
       '<div class="place">' + (current.name ? (escapeHtml(current.name) + ', ' + escapeHtml(current.country)) : escapeHtml(current.country)) + '</div>' +
       '<div style="margin:14px 0;">' + rowsHtml + '</div>' +
-      '<button class="btn-primary" id="nextBtn">Siguiente ronda</button>' +
-      (totalRoundsTarget === Infinity ? '<div style="margin-top:10px;"><button class="btn-ghost" id="finishNowBtn">Terminar partida ahora</button></div>' : '');
+      '<button class="btn-primary" id="nextBtn">Siguiente ronda</button>';
 
     document.getElementById('overlay').classList.add('show');
 
@@ -2406,15 +2380,6 @@ function revealRound(){
 
     const floatBtn = document.getElementById('nextRoundFloatBtn');
     floatBtn.onclick = goToNextRound;
-
-    const finishBtn = document.getElementById('finishNowBtn');
-    if(finishBtn){
-      finishBtn.addEventListener('click', function(){
-        document.getElementById('overlay').classList.remove('show');
-        document.getElementById('nextRoundFloatBtn').style.display = 'none';
-        showFinal();
-      });
-    }
   }, resultDelayMs);
 }
 
