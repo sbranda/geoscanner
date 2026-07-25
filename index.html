@@ -157,6 +157,35 @@
     .board::after{ display:none; }
   }
 
+  @media (max-width: 600px){
+    header{ padding:10px 14px; }
+    header h1{ font-size:1.1rem; gap:6px; }
+    .hud{ font-size:0.72rem; gap:6px; }
+    .hud div{ padding:5px 8px; }
+    #settingsBtn, #muteBtn, #darkModeBtn{ padding:5px 8px; font-size:0.72rem; }
+    .btn-label{ display:none; }
+    main{ padding: 0 12px 120px; margin: 14px auto; }
+    .instructions{ font-size:0.9rem; padding:8px 12px; }
+    #mapExplorer, #mapGuess, #streetview{ height:38vh; min-height:240px; }
+    .controls{
+      position:fixed;
+      left:0; right:0; bottom:0;
+      background: var(--bg-page);
+      padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+      margin-top:0;
+      border-top:1px solid var(--paper-line);
+      box-shadow: 0 -4px 14px rgba(0,0,0,0.12);
+      z-index:80;
+    }
+    .controls #confirmBtn{ width:100%; }
+    .tab-bar{
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      justify-content:flex-start;
+    }
+    .tab-btn{ flex:0 0 auto; min-width:76px; padding:10px 8px; }
+  }
+
   .panel{
     background:#fff;
     border: 1px solid var(--paper-line);
@@ -531,12 +560,12 @@
 <body>
 
 <header>
-  <h1>🧭 Atlas Errante</h1>
+  <h1>🧭 <span class="btn-label">Atlas Errante</span></h1>
   <div class="hud">
-    <div>Ronda <span id="roundNum">1</span>/<span id="roundTotal">5</span></div>
+    <div><span class="btn-label">Ronda </span><span id="roundNum">1</span>/<span id="roundTotal">5</span></div>
     <div id="turnIndicator" style="display:none;">👤 <span id="turnPlayerName"></span></div>
-    <div>Puntos <span id="scoreTotal">0</span></div>
-    <button id="settingsBtn">⚙ Categoría</button>
+    <div><span class="btn-label">Puntos </span><span id="scoreTotal">0</span></div>
+    <button id="settingsBtn">⚙ <span class="btn-label">Categoría</span></button>
     <button id="muteBtn">🔊</button>
     <button id="darkModeBtn">🌙</button>
   </div>
@@ -683,7 +712,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -2006,6 +2035,9 @@ const installBtn = document.createElement('button');
 installBtn.textContent = '📲 Instalar app';
 installBtn.className = 'btn-ghost';
 installBtn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:900;display:none;background:#EDE4D3;';
+if(window.matchMedia('(max-width: 600px)').matches){
+  installBtn.style.bottom = '90px';
+}
 document.body.appendChild(installBtn);
 
 window.addEventListener('beforeinstallprompt', (e) => {
