@@ -741,6 +741,9 @@
         <button class="btn-ghost" id="importBtn" style="flex:1; font-size:0.78rem; padding:8px 6px;">⬆️ Importar</button>
       </div>
       <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+      <div class="section-label" style="margin-top:18px; color:#C0392B;">Zona de peligro</div>
+      <p class="hint" style="margin-bottom:8px;">Borra récord, historial, logros, estadísticas, preferencias y configuración guardada — vuelve la app a como estaba recién instalada. No se puede deshacer.</p>
+      <button class="btn-ghost" id="resetAllBtn" style="width:100%; font-size:0.78rem; padding:8px 6px; border-color:#C0392B; color:#C0392B;">🗑️ Restablecer todo</button>
     </div>
 
     <button class="btn-primary" id="startGameBtn" style="width:100%; margin-top:16px;">Comenzar</button>
@@ -1368,6 +1371,90 @@ document.getElementById('mpPlus').addEventListener('click', function(){
   if(mpPlayerCount < 6){ mpPlayerCount++; document.getElementById('mpCount').textContent = mpPlayerCount; renderPlayerInputs(); }
 });
 
+const GAME_CONFIG_KEY = 'atlasErrante_lastConfig';
+
+function saveGameConfig(){
+  const hintTimes = {};
+  HINT_TIERS.forEach(tier => { hintTimes[tier.key] = Math.round(tier.ms / 1000); });
+  const config = {
+    selectedCategory: selectedCategory,
+    selectedContinent: selectedContinent,
+    selectedDifficulty: selectedDifficulty,
+    selectedRounds: selectedRounds,
+    hintsEnabled: hintsEnabled,
+    hintTimes: hintTimes,
+    speedModeEnabled: speedModeEnabled
+  };
+  try{ localStorage.setItem(GAME_CONFIG_KEY, JSON.stringify(config)); } catch(e){}
+}
+
+function loadGameConfig(){
+  try{
+    const raw = localStorage.getItem(GAME_CONFIG_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){
+    return null;
+  }
+}
+
+function applyGameConfig(cfg){
+  if(!cfg) return;
+
+  if(cfg.selectedCategory){
+    selectedCategory = cfg.selectedCategory;
+    document.querySelectorAll('#categoryGrid .cat-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.cat === selectedCategory);
+    });
+    document.getElementById('continentGrid').classList.toggle('show', selectedCategory === 'continente');
+    if(selectedCategory === 'diario'){
+      isDailyMode = true;
+      const dateStr = todayDateString();
+      dailyRng = mulberry32(hashStringToInt(dateStr));
+      const [y,m,d] = dateStr.split('-');
+      const streak = computeDailyStreak(getStats().dailyDatesPlayed);
+      const streakLabel = streak > 0 ? (' · 🔥 ' + streak + (streak === 1 ? ' día seguido' : ' días seguidos')) : '';
+      const dailyHint = document.getElementById('dailyHint');
+      dailyHint.textContent = '📅 Desafío del ' + d + '/' + m + '/' + y + ' — mismos lugares para todos hoy' + streakLabel;
+      dailyHint.style.display = 'block';
+    }
+  }
+  if(cfg.selectedContinent){
+    selectedContinent = cfg.selectedContinent;
+    document.querySelectorAll('.continent-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.continent === selectedContinent);
+    });
+  }
+  if(cfg.selectedDifficulty){
+    selectedDifficulty = cfg.selectedDifficulty;
+    document.querySelectorAll('#difficultyGrid .cat-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.difficulty === selectedDifficulty);
+    });
+  }
+  if(cfg.selectedRounds !== undefined){
+    selectedRounds = cfg.selectedRounds;
+    document.querySelectorAll('#roundsGrid .cat-btn').forEach(b => {
+      const val = b.dataset.rounds === 'inf' ? 'inf' : parseInt(b.dataset.rounds, 10);
+      b.classList.toggle('selected', val === selectedRounds);
+    });
+  }
+  if(cfg.hintTimes){
+    HINT_TIERS.forEach(tier => {
+      if(cfg.hintTimes[tier.key] !== undefined){
+        tier.ms = cfg.hintTimes[tier.key] * 1000;
+        const inp = document.getElementById('hintTime_' + tier.key);
+        if(inp) inp.value = cfg.hintTimes[tier.key];
+      }
+    });
+  }
+  if(cfg.hintsEnabled !== undefined && cfg.hintsEnabled !== hintsEnabled){
+    document.getElementById('hintsToggleBtn').click();
+  }
+  if(cfg.speedModeEnabled && cfg.speedModeEnabled !== speedModeEnabled){
+    document.getElementById('speedModeToggleBtn').click();
+  }
+  updateCatCount();
+}
+
 document.getElementById('startGameBtn').addEventListener('click', function(){
   pool = computePool();
   document.getElementById('catOverlay').classList.remove('show');
@@ -1377,6 +1464,8 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
     const val = inp ? parseInt(inp.value, 10) : NaN;
     if(!isNaN(val) && val > 0) tier.ms = val * 1000;
   });
+
+  saveGameConfig();
 
   if(mpEnabled){
     const inputs = [...document.getElementById('mpNameInputs').querySelectorAll('input')];
@@ -1398,6 +1487,23 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
 
   round = 0; remaining = [];
   startRound();
+});
+
+document.getElementById('resetAllBtn').addEventListener('click', function(){
+  const confirmed = confirm(
+    '¿Restablecer todo?\n\n' +
+    'Esto borra permanentemente: récord, historial, logros, estadísticas, ' +
+    'preferencias (sonido, tema, tamaño de texto) y la configuración de ' +
+    'partida guardada, en este dispositivo. No se puede deshacer.'
+  );
+  if(!confirmed) return;
+
+  const allKeys = getAppStorageKeys().concat([GAME_CONFIG_KEY]);
+  allKeys.forEach(k => {
+    try{ localStorage.removeItem(k); } catch(e){}
+  });
+
+  location.reload();
 });
 
 document.getElementById('clearHistoryBtn').addEventListener('click', function(){
@@ -1484,6 +1590,7 @@ document.getElementById('settingsBtn').addEventListener('click', function(){
   renderAchievementsList();
 });
 
+setTimeout(() => applyGameConfig(loadGameConfig()), 0);
 updateCatCount();
 renderHighScoreDisplay();
 renderHistoryList();
