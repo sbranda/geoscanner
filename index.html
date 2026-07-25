@@ -681,6 +681,11 @@
       <button class="cat-btn" id="speedModeToggleBtn" style="width:100%; margin-top:16px;">⚡ Modo velocidad (desactivado)</button>
       <p class="hint" style="margin-top:6px; margin-bottom:16px;">Suma hasta +500 pts extra por responder rápido (el bono baja a 0 después de 60 segundos).</p>
 
+      <div class="section-label">Aviso de resultado</div>
+      <label class="hint" style="text-align:left; display:block; margin-bottom:16px;">Espera antes de mostrar el aviso (segundos)<br>
+        <input type="number" min="0" step="0.1" id="resultDelayInput" class="player-name-input" value="0.8" style="max-width:120px;">
+      </label>
+
       <div class="section-label">Tamaño de texto</div>
       <div class="cat-grid" id="textSizeGrid">
         <button class="cat-btn" data-textsize="pequeno" style="font-size:0.78rem;">A Pequeño</button>
@@ -759,7 +764,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -929,6 +934,7 @@ let selectedRounds = 5;
 let totalRoundsTarget = 5;
 let hintsEnabled = true;
 let speedModeEnabled = false;
+let resultDelayMs = 800;
 const SPEED_BONUS_MAX = 500;
 const SPEED_BONUS_WINDOW = 60;
 
@@ -1387,7 +1393,8 @@ function saveGameConfig(){
     selectedRounds: selectedRounds,
     hintsEnabled: hintsEnabled,
     hintTimes: hintTimes,
-    speedModeEnabled: speedModeEnabled
+    speedModeEnabled: speedModeEnabled,
+    resultDelayMs: resultDelayMs
   };
   try{ localStorage.setItem(GAME_CONFIG_KEY, JSON.stringify(config)); } catch(e){}
 }
@@ -1456,6 +1463,11 @@ function applyGameConfig(cfg){
   if(cfg.speedModeEnabled && cfg.speedModeEnabled !== speedModeEnabled){
     document.getElementById('speedModeToggleBtn').click();
   }
+  if(cfg.resultDelayMs !== undefined){
+    resultDelayMs = cfg.resultDelayMs;
+    const delayInp = document.getElementById('resultDelayInput');
+    if(delayInp) delayInp.value = (resultDelayMs / 1000).toString();
+  }
   updateCatCount();
 }
 
@@ -1468,6 +1480,10 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
     const val = inp ? parseInt(inp.value, 10) : NaN;
     if(!isNaN(val) && val > 0) tier.ms = val * 1000;
   });
+
+  const delayInp = document.getElementById('resultDelayInput');
+  const delayVal = delayInp ? parseFloat(delayInp.value) : NaN;
+  if(!isNaN(delayVal) && delayVal >= 0) resultDelayMs = Math.round(delayVal * 1000);
 
   saveGameConfig();
 
@@ -2265,7 +2281,7 @@ function revealRound(){
         showFinal();
       });
     }
-  }, 800);
+  }, resultDelayMs);
 }
 
 function ratingFor(total){
