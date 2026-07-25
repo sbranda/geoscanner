@@ -565,6 +565,31 @@
     100%{ transform: translateY(0) scale(1); opacity:1; }
   }
   .marker-animate{ animation: markerDrop 0.5s ease-out; }
+
+  .card-close-btn{
+    position:absolute;
+    top:10px; right:10px;
+    background:transparent;
+    border:none;
+    color: var(--charcoal);
+    font-size:1.1rem;
+    width:32px; height:32px;
+    border-radius:50%;
+    cursor:pointer;
+    opacity:0.6;
+  }
+  .card-close-btn:hover{ opacity:1; background: rgba(0,0,0,0.06); }
+
+  #nextRoundFloatBtn{
+    display:none;
+    position:fixed;
+    bottom:96px; right:16px;
+    z-index:900;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  }
+  @media (max-width: 600px){
+    #nextRoundFloatBtn{ bottom:180px; }
+  }
 </style>
 </head>
 <body>
@@ -622,6 +647,8 @@
 <div id="overlay">
   <div class="card" id="resultCard"></div>
 </div>
+
+<button class="btn-primary" id="nextRoundFloatBtn">▶ Siguiente ronda</button>
 
 <div id="catOverlay" class="show">
   <div class="card" id="catCard">
@@ -764,7 +791,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -2115,6 +2142,7 @@ async function startRound(){
 
 async function beginTurn(){
   confirmed = false;
+  document.getElementById('nextRoundFloatBtn').style.display = 'none';
   await guessMapReady;
   if(guessMarker){ guessMarker.setMap(null); guessMarker = null; }
   clearAllGuessMarkers();
@@ -2236,6 +2264,7 @@ function revealRound(){
 
     const card = document.getElementById('resultCard');
     card.innerHTML = compassSVG() +
+      '<button class="card-close-btn" id="closeRevealBtn" aria-label="Cerrar">✕</button>' +
       '<h2>Ronda revelada</h2>' +
       '<div class="place">' + (current.name ? (escapeHtml(current.name) + ', ' + escapeHtml(current.country)) : escapeHtml(current.country)) + '</div>' +
       '<div style="margin:14px 0;">' + rowsHtml + '</div>' +
@@ -2244,20 +2273,32 @@ function revealRound(){
 
     document.getElementById('overlay').classList.add('show');
 
-    document.getElementById('nextBtn').addEventListener('click', function(){
+    function goToNextRound(){
       document.getElementById('overlay').classList.remove('show');
+      document.getElementById('nextRoundFloatBtn').style.display = 'none';
       round++;
       if(round >= totalRoundsTarget){
         showFinal();
       } else {
         startRound();
       }
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', goToNextRound);
+
+    document.getElementById('closeRevealBtn').addEventListener('click', function(){
+      document.getElementById('overlay').classList.remove('show');
+      document.getElementById('nextRoundFloatBtn').style.display = 'block';
     });
+
+    const floatBtn = document.getElementById('nextRoundFloatBtn');
+    floatBtn.onclick = goToNextRound;
 
     const finishBtn = document.getElementById('finishNowBtn');
     if(finishBtn){
       finishBtn.addEventListener('click', function(){
         document.getElementById('overlay').classList.remove('show');
+        document.getElementById('nextRoundFloatBtn').style.display = 'none';
         showFinal();
       });
     }
@@ -2414,11 +2455,23 @@ function showFinal(){
     badgesHtml +
     '<div style="margin:16px 0;">' + rowsHtml + '</div>' +
     '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>' +
-    '<div style="margin-top:10px;"><button class="btn-ghost" id="shareScoreBtn">📤 Compartir puntaje</button></div>';
+    '<div style="margin-top:10px; display:flex; gap:8px;">' +
+      '<button class="btn-ghost" id="shareScoreBtn" style="flex:1;">📤 Compartir</button>' +
+      '<button class="btn-ghost" id="backToMenuBtn" style="flex:1;">🏠 Volver al menú</button>' +
+    '</div>';
 
   document.getElementById('overlay').classList.add('show');
   document.getElementById('restartBtn').addEventListener('click', function(){
     location.reload();
+  });
+
+  document.getElementById('backToMenuBtn').addEventListener('click', function(){
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('catOverlay').classList.add('show');
+    updateCatCount();
+    renderHighScoreDisplay();
+    renderHistoryList();
+    renderAchievementsList();
   });
 
   document.getElementById('shareScoreBtn').addEventListener('click', async function(){
