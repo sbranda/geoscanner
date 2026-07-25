@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-errante-v4';
+const CACHE_NAME = 'atlas-errante-v5';
 const APP_SHELL = [
   './index.html',
   './manifest.json',
@@ -54,15 +54,12 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).then((res) => {
-        if (res && res.ok) {
-          const resClone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone)).catch(() => {});
-        }
-        return res;
-      });
-    }).catch(() => fetch(req))
+    fetch(req).then((res) => {
+      if (res && res.ok) {
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone)).catch(() => {});
+      }
+      return res;
+    }).catch(() => caches.match(req))
   );
 });
