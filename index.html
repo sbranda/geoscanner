@@ -600,9 +600,9 @@
     <div><span class="btn-label">Ronda </span><span id="roundNum">1</span>/<span id="roundTotal">5</span></div>
     <div id="turnIndicator" style="display:none;">👤 <span id="turnPlayerName"></span></div>
     <div><span class="btn-label">Puntos </span><span id="scoreTotal">0</span></div>
-    <button id="settingsBtn">⚙ <span class="btn-label">Categoría</span></button>
-    <button id="muteBtn">🔊</button>
-    <button id="darkModeBtn">🌙</button>
+    <button id="settingsBtn" aria-label="Abrir configuración">⚙ <span class="btn-label">Categoría</span></button>
+    <button id="muteBtn" aria-label="Silenciar sonido y vibración">🔊</button>
+    <button id="darkModeBtn" aria-label="Activar modo oscuro">🌙</button>
   </div>
 </header>
 
@@ -752,9 +752,9 @@
       <div id="mpPlayersSection" style="display:none;">
         <div class="section-label">Cantidad de jugadores</div>
         <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:12px;">
-          <button class="btn-ghost" id="mpMinus" style="padding:6px 14px;">−</button>
+          <button class="btn-ghost" id="mpMinus" style="padding:6px 14px;" aria-label="Restar un jugador">−</button>
           <span id="mpCount" style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:1.1rem;">2</span>
-          <button class="btn-ghost" id="mpPlus" style="padding:6px 14px;">+</button>
+          <button class="btn-ghost" id="mpPlus" style="padding:6px 14px;" aria-label="Sumar un jugador">+</button>
         </div>
         <div id="mpNameInputs"></div>
       </div>
@@ -791,7 +791,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -1873,7 +1873,9 @@ function playMissSound(){
 }
 
 function updateMuteBtn(){
-  document.getElementById('muteBtn').textContent = soundEnabled ? '🔊' : '🔇';
+  const btn = document.getElementById('muteBtn');
+  btn.textContent = soundEnabled ? '🔊' : '🔇';
+  btn.setAttribute('aria-label', soundEnabled ? 'Silenciar sonido y vibración' : 'Activar sonido y vibración');
 }
 
 document.getElementById('muteBtn').addEventListener('click', function(){
@@ -1892,7 +1894,9 @@ try{ darkModeEnabled = localStorage.getItem(DARK_MODE_KEY) === 'true'; } catch(e
 
 function applyDarkMode(){
   document.body.classList.toggle('dark-theme', darkModeEnabled);
-  document.getElementById('darkModeBtn').textContent = darkModeEnabled ? '☀️' : '🌙';
+  const btn = document.getElementById('darkModeBtn');
+  btn.textContent = darkModeEnabled ? '☀️' : '🌙';
+  btn.setAttribute('aria-label', darkModeEnabled ? 'Activar modo claro' : 'Activar modo oscuro');
   const themeColorMeta = document.querySelector('meta[name="theme-color"]');
   if(themeColorMeta) themeColorMeta.setAttribute('content', darkModeEnabled ? '#0F1826' : '#1B2A4A');
 }
