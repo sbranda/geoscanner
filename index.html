@@ -1206,7 +1206,9 @@ document.querySelectorAll('#categoryGrid .cat-btn').forEach(btn => {
       const dateStr = todayDateString();
       dailyRng = mulberry32(hashStringToInt(dateStr));
       const [y,m,d] = dateStr.split('-');
-      dailyHint.textContent = '📅 Desafío del ' + d + '/' + m + '/' + y + ' — mismos lugares para todos hoy';
+      const streak = computeDailyStreak(getStats().dailyDatesPlayed);
+      const streakLabel = streak > 0 ? (' · 🔥 ' + streak + (streak === 1 ? ' día seguido' : ' días seguidos')) : '';
+      dailyHint.textContent = '📅 Desafío del ' + d + '/' + m + '/' + y + ' — mismos lugares para todos hoy' + streakLabel;
       dailyHint.style.display = 'block';
     } else {
       isDailyMode = false;
@@ -1441,6 +1443,31 @@ function mulberry32(seed){
 function todayDateString(){
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function dateStringNDaysAgo(n){
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function computeDailyStreak(dailyDatesPlayed){
+  if(!dailyDatesPlayed || !dailyDatesPlayed.length) return 0;
+  const daySet = new Set(dailyDatesPlayed);
+  const today = todayDateString();
+  const yesterday = dateStringNDaysAgo(1);
+  // La racha solo cuenta si jugaste hoy o ayer (si no, está cortada).
+  let cursorDaysAgo;
+  if(daySet.has(today)) cursorDaysAgo = 0;
+  else if(daySet.has(yesterday)) cursorDaysAgo = 1;
+  else return 0;
+
+  let count = 0;
+  while(daySet.has(dateStringNDaysAgo(cursorDaysAgo))){
+    count++;
+    cursorDaysAgo++;
+  }
+  return count;
 }
 
 let dailyRng = null;
@@ -2125,6 +2152,14 @@ function showFinal(){
     ? '<div style="background:rgba(184,134,59,0.15); border:1px solid var(--brass); border-radius:4px; padding:8px 12px; margin-bottom:12px; font-weight:700; color:var(--brass-dark);">🏆 ¡Nuevo récord histórico!</div>'
     : '<div class="hint" style="margin-bottom:12px;">Mejor puntaje histórico: ' + Math.max(previousHighScore, sorted[0].total).toLocaleString('es') + ' pts</div>';
 
+  let streakBanner = '';
+  if(isDailyMode){
+    const streak = computeDailyStreak(stats.dailyDatesPlayed);
+    if(streak > 0){
+      streakBanner = '<div style="background:rgba(184,134,59,0.15); border:1px solid var(--brass); border-radius:4px; padding:8px 12px; margin-bottom:12px; font-weight:700; color:var(--brass-dark);">🔥 ' + streak + (streak === 1 ? ' día seguido' : ' días seguidos') + ' con el desafío diario</div>';
+    }
+  }
+
   const badgesHtml = newlyUnlocked.map(a =>
     '<div class="badge-toast"><span class="badge-icon">' + a.icon + '</span><div><div class="badge-name">¡Logro desbloqueado!</div><div>' + a.name + '</div></div></div>'
   ).join('');
@@ -2137,6 +2172,7 @@ function showFinal(){
     '<h2>Partida terminada</h2>' +
     '<div class="place">' + subtitle + '</div>' +
     recordBanner +
+    streakBanner +
     badgesHtml +
     '<div style="margin:16px 0;">' + rowsHtml + '</div>' +
     '<button class="btn-primary" id="restartBtn">Jugar de nuevo</button>' +
