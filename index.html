@@ -705,6 +705,13 @@
     <div class="tab-panel" data-panel="historial">
       <div id="historyList" style="text-align:left;"></div>
       <button class="btn-ghost" id="clearHistoryBtn" style="margin-top:10px; font-size:0.78rem; padding:6px 12px;">Borrar historial</button>
+      <div class="section-label" style="margin-top:18px;">Respaldo de progreso</div>
+      <p class="hint" style="margin-bottom:8px;">Tu récord, historial y logros viven solo en este navegador. Exporta un archivo para llevarlos a otro celular.</p>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-ghost" id="exportBtn" style="flex:1; font-size:0.78rem; padding:8px 6px;">⬇️ Exportar</button>
+        <button class="btn-ghost" id="importBtn" style="flex:1; font-size:0.78rem; padding:8px 6px;">⬆️ Importar</button>
+      </div>
+      <input type="file" id="importFileInput" accept="application/json" style="display:none;">
     </div>
 
     <button class="btn-primary" id="startGameBtn" style="width:100%; margin-top:16px;">Comenzar</button>
@@ -716,7 +723,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -1316,6 +1323,77 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
 
 document.getElementById('clearHistoryBtn').addEventListener('click', function(){
   clearHistory();
+});
+
+// ---- Exportar / importar progreso (localStorage) ----
+function getAppStorageKeys(){
+  return [HIGH_SCORE_KEY, HISTORY_KEY, STATS_KEY, ACHIEVEMENTS_KEY, SOUND_KEY, DARK_MODE_KEY];
+}
+
+function exportProgress(){
+  const data = { _app: 'Atlas Errante', _exportedAt: new Date().toISOString() };
+  getAppStorageKeys().forEach(k => {
+    const v = localStorage.getItem(k);
+    if(v !== null) data[k] = v;
+  });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'atlas-errante-progreso-' + todayDateString() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importProgress(file){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    let data;
+    try{
+      data = JSON.parse(e.target.result);
+    } catch(err){
+      alert('No se pudo leer el archivo. Asegúrate de que sea un respaldo exportado desde Atlas Errante.');
+      return;
+    }
+    if(!data || data._app !== 'Atlas Errante'){
+      alert('Este archivo no parece ser un respaldo válido de Atlas Errante.');
+      return;
+    }
+    if(!confirm('Esto reemplazará tu récord, historial y logros actuales en este dispositivo. ¿Continuar?')){
+      return;
+    }
+    getAppStorageKeys().forEach(k => {
+      if(data[k] !== undefined){
+        try{ localStorage.setItem(k, data[k]); } catch(err){}
+      }
+    });
+    renderHighScoreDisplay();
+    renderHistoryList();
+    renderAchievementsList();
+    try{
+      soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false';
+      updateMuteBtn();
+      darkModeEnabled = localStorage.getItem(DARK_MODE_KEY) === 'true';
+      applyDarkMode();
+    } catch(err){}
+    alert('¡Progreso importado correctamente!');
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('exportBtn').addEventListener('click', exportProgress);
+
+document.getElementById('importBtn').addEventListener('click', function(){
+  document.getElementById('importFileInput').click();
+});
+
+document.getElementById('importFileInput').addEventListener('change', function(){
+  if(this.files && this.files[0]){
+    importProgress(this.files[0]);
+    this.value = '';
+  }
 });
 
 document.getElementById('settingsBtn').addEventListener('click', function(){
