@@ -33,6 +33,13 @@
     --bg-panel: #fff;
     --text-muted: #5b5346;
   }
+  html{
+    font-size: 16px;
+  }
+  html[data-textsize="pequeno"]{ font-size: 14px; }
+  html[data-textsize="normal"]{ font-size: 16px; }
+  html[data-textsize="grande"]{ font-size: 19px; }
+  html[data-textsize="muygrande"]{ font-size: 22px; }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0; touch-action:pan-x pan-y;}
 
@@ -663,7 +670,15 @@
         <button class="cat-btn" data-rounds="inf">♾️ Sin límite</button>
       </div>
       <button class="cat-btn" id="speedModeToggleBtn" style="width:100%; margin-top:16px;">⚡ Modo velocidad (desactivado)</button>
-      <p class="hint" style="margin-top:6px;">Suma hasta +500 pts extra por responder rápido (el bono baja a 0 después de 60 segundos).</p>
+      <p class="hint" style="margin-top:6px; margin-bottom:16px;">Suma hasta +500 pts extra por responder rápido (el bono baja a 0 después de 60 segundos).</p>
+
+      <div class="section-label">Tamaño de texto</div>
+      <div class="cat-grid" id="textSizeGrid">
+        <button class="cat-btn" data-textsize="pequeno" style="font-size:0.78rem;">A Pequeño</button>
+        <button class="cat-btn selected" data-textsize="normal">A Normal</button>
+        <button class="cat-btn" data-textsize="grande" style="font-size:1.05rem;">A Grande</button>
+        <button class="cat-btn" data-textsize="muygrande" style="font-size:1.2rem;">A Muy grande</button>
+      </div>
     </div>
 
     <div class="tab-panel" data-panel="pistas">
@@ -1264,6 +1279,26 @@ document.getElementById('speedModeToggleBtn').addEventListener('click', function
   this.textContent = speedModeEnabled ? '⚡ Modo velocidad (activado)' : '⚡ Modo velocidad (desactivado)';
 });
 
+const TEXT_SIZE_KEY = 'atlasErrante_textSize';
+
+function applyTextSize(size){
+  document.documentElement.setAttribute('data-textsize', size);
+  document.querySelectorAll('#textSizeGrid .cat-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.textsize === size);
+  });
+  try{ localStorage.setItem(TEXT_SIZE_KEY, size); } catch(e){}
+}
+
+document.querySelectorAll('#textSizeGrid .cat-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    applyTextSize(this.dataset.textsize);
+  });
+});
+
+let savedTextSize = 'normal';
+try{ savedTextSize = localStorage.getItem(TEXT_SIZE_KEY) || 'normal'; } catch(e){}
+applyTextSize(savedTextSize);
+
 document.querySelectorAll('#difficultyGrid .cat-btn').forEach(btn => {
   btn.addEventListener('click', function(){
     document.querySelectorAll('#difficultyGrid .cat-btn').forEach(b => b.classList.remove('selected'));
@@ -1350,7 +1385,7 @@ document.getElementById('clearHistoryBtn').addEventListener('click', function(){
 
 // ---- Exportar / importar progreso (localStorage) ----
 function getAppStorageKeys(){
-  return [HIGH_SCORE_KEY, HISTORY_KEY, STATS_KEY, ACHIEVEMENTS_KEY, SOUND_KEY, DARK_MODE_KEY];
+  return [HIGH_SCORE_KEY, HISTORY_KEY, STATS_KEY, ACHIEVEMENTS_KEY, SOUND_KEY, DARK_MODE_KEY, TEXT_SIZE_KEY];
 }
 
 function exportProgress(){
