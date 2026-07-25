@@ -595,6 +595,8 @@
     <div>
       <span class="hint" id="guessHint">Coloca un marcador en el mapa de la derecha.</span>
       <div class="hint" id="hintText" style="color:var(--brass-dark); font-weight:600; margin-top:4px;"></div>
+      <img id="hintPhoto" style="display:none; max-width:130px; max-height:90px; border-radius:4px; margin-top:6px; border:2px solid var(--brass);">
+      <div class="hint" id="hintPhotoAttr" style="display:none; font-size:0.68rem; opacity:0.75;"></div>
       <div class="hint" id="turnTimer" style="font-family:'JetBrains Mono', monospace; font-weight:700; margin-top:4px;">⏱ 0:00</div>
     </div>
     <button class="btn-primary" id="confirmBtn" disabled>Confirmar conjetura</button>
@@ -673,6 +675,9 @@
           <label class="hint" style="text-align:left;">🌊 Terreno<br>
             <input type="number" min="5" step="5" id="hintTime_terreno" class="player-name-input" value="60">
           </label>
+          <label class="hint" style="text-align:left;">🖼️ Foto cercana<br>
+            <input type="number" min="5" step="5" id="hintTime_foto" class="player-name-input" value="75">
+          </label>
           <label class="hint" style="text-align:left;">🌍 Continente<br>
             <input type="number" min="5" step="5" id="hintTime_continente" class="player-name-input" value="90">
           </label>
@@ -737,7 +742,7 @@ if(GOOGLE_MAPS_API_KEY === "TU_API_KEY_AQUI"){
   document.getElementById('keyWarning').style.display = 'block';
 } else {
   const gmScript = document.createElement('script');
-  gmScript.src = 'https://maps.googleapis.com/maps/api/js?key=' + GOOGLE_MAPS_API_KEY + '&callback=initGoogleMaps&loading=async';
+  gmScript.src = 'https://maps.googleapis.com/maps/api/js?key=' + GOOGLE_MAPS_API_KEY + '&libraries=places&callback=initGoogleMaps&loading=async';
   gmScript.async = true;
   document.head.appendChild(gmScript);
 }
@@ -1776,9 +1781,51 @@ function tierCountry(){
   return '🚩 Pista: país — ' + current.country;
 }
 
+async function fetchNearbyPlacePhotoUrl(lat, lng){
+  if(!(google.maps.places && google.maps.places.Place && google.maps.places.Place.searchNearby)) return null;
+  const center = new google.maps.LatLng(lat, lng);
+  const request = {
+    fields: ['displayName', 'photos'],
+    locationRestriction: { center: center, radius: 3000 },
+    maxResultCount: 10,
+    rankPreference: google.maps.places.SearchNearbyRankPreference.POPULARITY
+  };
+  const { places } = await google.maps.places.Place.searchNearby(request);
+  const withPhotos = (places || []).filter(p => p.photos && p.photos.length > 0);
+  if(!withPhotos.length) return null;
+  const chosen = withPhotos[Math.floor(Math.random() * withPhotos.length)];
+  const photo = chosen.photos[0];
+  const attribution = (photo.authorAttributions && photo.authorAttributions[0]) ? photo.authorAttributions[0].displayName : null;
+  return { url: photo.getURI({ maxWidth: 400 }), attribution };
+}
+
+async function tierFoto(){
+  const photoEl = document.getElementById('hintPhoto');
+  const attrEl = document.getElementById('hintPhotoAttr');
+  photoEl.style.display = 'none';
+  attrEl.style.display = 'none';
+  if(!roundCenter) return '🖼️ Pista: foto cercana no disponible';
+  try{
+    const result = await fetchNearbyPlacePhotoUrl(roundCenter[0], roundCenter[1]);
+    if(result && result.url){
+      photoEl.src = result.url;
+      photoEl.style.display = 'block';
+      if(result.attribution){
+        attrEl.textContent = '📷 ' + result.attribution;
+        attrEl.style.display = 'block';
+      }
+      return '🖼️ Pista: foto de un punto de interés cercano';
+    }
+  } catch(err){
+    console.warn('No se pudo obtener foto de Places:', err);
+  }
+  return '🖼️ Pista: no se encontró un punto de interés cercano con foto';
+}
+
 const HINT_TIERS = [
   { key: 'calles', ms: 30000, cost: 300, apply: tierStreets },
   { key: 'terreno', ms: 60000, cost: 400, apply: tierTerrain },
+  { key: 'foto', ms: 75000, cost: 500, apply: tierFoto },
   { key: 'continente', ms: 90000, cost: 600, apply: tierContinent },
   { key: 'pais', ms: 120000, cost: 900, apply: tierCountry }
 ];
@@ -1787,6 +1834,8 @@ function clearHints(){
   hintTimeouts.forEach(t => clearTimeout(t));
   hintTimeouts = [];
   document.getElementById('hintText').textContent = '';
+  document.getElementById('hintPhoto').style.display = 'none';
+  document.getElementById('hintPhotoAttr').style.display = 'none';
   stopTurnTimer();
 }
 
@@ -1812,9 +1861,9 @@ function scheduleHints(){
   startTurnTimer();
   if(!hintsEnabled) return;
   HINT_TIERS.forEach(tier => {
-    hintTimeouts.push(setTimeout(() => {
+    hintTimeouts.push(setTimeout(async () => {
       currentHintPenalty += tier.cost;
-      const label = tier.apply();
+      const label = await tier.apply();
       document.getElementById('hintText').textContent = label + ' (−' + currentHintPenalty + ' pts acumulado)';
     }, tier.ms));
   });
