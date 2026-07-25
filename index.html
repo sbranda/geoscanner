@@ -171,7 +171,7 @@
     .hud div{ padding:5px 8px; }
     #settingsBtn, #muteBtn, #darkModeBtn{ padding:5px 8px; font-size:0.72rem; }
     .btn-label{ display:none; }
-    main{ padding: 0 12px 120px; margin: 14px auto; }
+    main{ padding: 0 12px 170px; margin: 14px auto; }
     .instructions{ font-size:0.9rem; padding:8px 12px; }
     #mapExplorer, #mapGuess, #streetview{ height:38vh; min-height:240px; }
     .controls{
@@ -183,8 +183,11 @@
       border-top:1px solid var(--paper-line);
       box-shadow: 0 -4px 14px rgba(0,0,0,0.12);
       z-index:80;
+      max-height:40vh;
+      overflow-y:auto;
     }
-    .controls #confirmBtn{ width:100%; }
+    .controls #confirmBtn{ width:100%; margin-top:8px; }
+    #controlsInfo{ width:100%; }
     .tab-bar{
       overflow-x:auto;
       -webkit-overflow-scrolling:touch;
@@ -429,7 +432,7 @@
     width:100%;
     box-sizing:border-box;
     font-family:'Inter', sans-serif;
-    font-size:0.88rem;
+    font-size:16px;
     padding:9px 12px;
     margin-bottom:8px;
     border:1.5px solid var(--paper-line);
@@ -599,12 +602,14 @@
   </div>
 
   <div class="controls">
-    <div>
-      <span class="hint" id="guessHint">Coloca un marcador en el mapa de la derecha.</span>
-      <div class="hint" id="hintText" style="color:var(--brass-dark); font-weight:600; margin-top:4px;"></div>
-      <img id="hintPhoto" style="display:none; max-width:130px; max-height:90px; border-radius:4px; margin-top:6px; border:2px solid var(--brass);">
-      <div class="hint" id="hintPhotoAttr" style="display:none; font-size:0.68rem; opacity:0.75;"></div>
-      <div class="hint" id="turnTimer" style="font-family:'JetBrains Mono', monospace; font-weight:700; margin-top:4px;">⏱ 0:00</div>
+    <div id="controlsInfo" style="display:flex; align-items:flex-start; gap:10px; flex:1; min-width:0;">
+      <img id="hintPhoto" style="display:none; max-width:70px; max-height:70px; border-radius:4px; border:2px solid var(--brass); flex-shrink:0;">
+      <div style="min-width:0;">
+        <span class="hint" id="guessHint">Coloca un marcador en el mapa de la derecha.</span>
+        <div class="hint" id="hintText" style="color:var(--brass-dark); font-weight:600; margin-top:4px;"></div>
+        <div class="hint" id="hintPhotoAttr" style="display:none; font-size:0.68rem; opacity:0.75;"></div>
+        <div class="hint" id="turnTimer" style="font-family:'JetBrains Mono', monospace; font-weight:700; margin-top:4px;">⏱ 0:00</div>
+      </div>
     </div>
     <button class="btn-primary" id="confirmBtn" disabled>Confirmar conjetura</button>
   </div>
@@ -747,7 +752,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
