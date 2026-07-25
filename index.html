@@ -590,6 +590,12 @@
   @media (max-width: 600px){
     #nextRoundFloatBtn{ bottom:180px; }
   }
+
+  .tutorial-icon{ font-size:2.8rem; margin-bottom:10px; }
+  .tutorial-title{ font-family:'Spectral', serif; font-size:1.25rem; color:var(--charcoal); margin-bottom:10px; }
+  .tutorial-text{ font-size:0.92rem; line-height:1.5; color:var(--charcoal); }
+  .tutorial-dot{ width:8px; height:8px; border-radius:50%; background:var(--paper-line); }
+  .tutorial-dot.active{ background:var(--brass); }
 </style>
 </head>
 <body>
@@ -653,7 +659,19 @@
 
 <button class="btn-primary" id="nextRoundFloatBtn">▶ Siguiente ronda</button>
 
-<div id="catOverlay" class="show">
+<div id="tutorialOverlay" style="position:fixed; inset:0; background:rgba(27,42,74,0.65); display:none; align-items:center; justify-content:center; z-index:1100; padding:20px;">
+  <div class="card" id="tutorialCard" style="max-width:420px;">
+    <div id="tutorialSlideContent"></div>
+    <div id="tutorialDots" style="display:flex; justify-content:center; gap:6px; margin:16px 0;"></div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn-ghost" id="tutorialBackBtn" style="flex:1; display:none;">Atrás</button>
+      <button class="btn-primary" id="tutorialNextBtn" style="flex:1;">Siguiente</button>
+    </div>
+    <button class="btn-ghost" id="tutorialSkipBtn" style="width:100%; margin-top:10px; font-size:0.76rem; padding:6px;">Saltar</button>
+  </div>
+</div>
+
+<div id="catOverlay">
   <div class="card" id="catCard">
     <svg class="compass" viewBox="0 0 100 100" style="margin-bottom:6px;">
       <circle cx="50" cy="50" r="46" fill="none" stroke="#B8863B" stroke-width="3"/>
@@ -663,6 +681,7 @@
     <h2 style="margin-bottom:4px;">Configura tu partida</h2>
     <div class="hint" id="highScoreDisplay" style="margin-bottom:14px; font-weight:600;"></div>
     <div class="hint" id="mapsStatusDisplay" style="margin-bottom:14px;">⏳ Cargando mapas de Google…</div>
+    <button class="btn-ghost" id="showTutorialBtn" style="font-size:0.76rem; padding:5px 12px; margin-bottom:14px;">❓ Cómo jugar</button>
 
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="lugar">🌍 Lugar</button>
@@ -1652,6 +1671,83 @@ updateCatCount();
 renderHighScoreDisplay();
 renderHistoryList();
 renderAchievementsList();
+
+// ---- Tutorial breve (solo la primera vez) ----
+const TUTORIAL_KEY = 'atlasErrante_tutorialSeen';
+const TUTORIAL_SLIDES = [
+  {
+    icon: '🧭',
+    title: 'Bienvenido a Atlas Errante',
+    text: 'En cada ronda explorás un lugar del mundo en el panel izquierdo (fotos reales de Street View o un mapa) sin nombres ni letreros — y marcás en el mapa de la derecha dónde creés que está.'
+  },
+  {
+    icon: '🎯',
+    title: 'Puntaje',
+    text: 'Cuanto más cerca marques, más puntos ganás. Podés pedir pistas (calles, terreno, una foto cercana, continente, país) pero cada una te resta puntos — o jugar sin pistas para ir por el logro 🧭 Sin ayuditas.'
+  },
+  {
+    icon: '⚙️',
+    title: 'A tu manera',
+    text: 'Tocá "⚙ Categoría" para elegir el tipo de lugares, la dificultad, cuántas rondas, modo multijugador (pasando el celular) y más. ¡Vamos a jugar!'
+  }
+];
+let tutorialSlideIndex = 0;
+
+function renderTutorialSlide(){
+  const s = TUTORIAL_SLIDES[tutorialSlideIndex];
+  document.getElementById('tutorialSlideContent').innerHTML =
+    '<div class="tutorial-icon">' + s.icon + '</div>' +
+    '<div class="tutorial-title">' + s.title + '</div>' +
+    '<div class="tutorial-text">' + s.text + '</div>';
+  document.getElementById('tutorialDots').innerHTML = TUTORIAL_SLIDES.map((_, i) =>
+    '<div class="tutorial-dot' + (i === tutorialSlideIndex ? ' active' : '') + '"></div>'
+  ).join('');
+  document.getElementById('tutorialBackBtn').style.display = tutorialSlideIndex === 0 ? 'none' : 'block';
+  document.getElementById('tutorialNextBtn').textContent =
+    tutorialSlideIndex === TUTORIAL_SLIDES.length - 1 ? '¡Vamos a jugar!' : 'Siguiente';
+}
+
+function openTutorial(){
+  tutorialSlideIndex = 0;
+  renderTutorialSlide();
+  document.getElementById('catOverlay').classList.remove('show');
+  document.getElementById('tutorialOverlay').style.display = 'flex';
+}
+
+function closeTutorial(){
+  try{ localStorage.setItem(TUTORIAL_KEY, 'true'); } catch(e){}
+  document.getElementById('tutorialOverlay').style.display = 'none';
+  document.getElementById('catOverlay').classList.add('show');
+}
+
+document.getElementById('tutorialNextBtn').addEventListener('click', function(){
+  if(tutorialSlideIndex < TUTORIAL_SLIDES.length - 1){
+    tutorialSlideIndex++;
+    renderTutorialSlide();
+  } else {
+    closeTutorial();
+  }
+});
+
+document.getElementById('tutorialBackBtn').addEventListener('click', function(){
+  if(tutorialSlideIndex > 0){
+    tutorialSlideIndex--;
+    renderTutorialSlide();
+  }
+});
+
+document.getElementById('tutorialSkipBtn').addEventListener('click', closeTutorial);
+
+document.getElementById('showTutorialBtn').addEventListener('click', openTutorial);
+
+let hasSeenTutorial = false;
+try{ hasSeenTutorial = localStorage.getItem(TUTORIAL_KEY) === 'true'; } catch(e){}
+
+if(hasSeenTutorial){
+  document.getElementById('catOverlay').classList.add('show');
+} else {
+  openTutorial();
+}
 
 function shuffle(arr){
   const a = arr.slice();
