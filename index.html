@@ -662,6 +662,8 @@
         <button class="cat-btn" data-rounds="20">20 rondas</button>
         <button class="cat-btn" data-rounds="inf">♾️ Sin límite</button>
       </div>
+      <button class="cat-btn" id="speedModeToggleBtn" style="width:100%; margin-top:16px;">⚡ Modo velocidad (desactivado)</button>
+      <p class="hint" style="margin-top:6px;">Suma hasta +500 pts extra por responder rápido (el bono baja a 0 después de 60 segundos).</p>
     </div>
 
     <div class="tab-panel" data-panel="pistas">
@@ -728,7 +730,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -890,6 +892,14 @@ let selectedDifficulty = 'normal';
 let selectedRounds = 5;
 let totalRoundsTarget = 5;
 let hintsEnabled = true;
+let speedModeEnabled = false;
+const SPEED_BONUS_MAX = 500;
+const SPEED_BONUS_WINDOW = 60;
+
+function computeSpeedBonus(elapsedSeconds){
+  if(!speedModeEnabled) return 0;
+  return Math.round(Math.max(0, SPEED_BONUS_MAX * (1 - elapsedSeconds / SPEED_BONUS_WINDOW)));
+}
 
 // ---- Puntaje máximo histórico (localStorage) ----
 const HIGH_SCORE_KEY = 'atlasErrante_highScore';
@@ -1246,6 +1256,12 @@ document.getElementById('hintsToggleBtn').addEventListener('click', function(){
   this.textContent = hintsEnabled ? '💡 Pistas activadas' : '🚫 Pistas desactivadas';
   document.getElementById('hintsConfigSection').style.display = hintsEnabled ? 'block' : 'none';
   document.getElementById('hintsDisabledMsg').style.display = hintsEnabled ? 'none' : 'block';
+});
+
+document.getElementById('speedModeToggleBtn').addEventListener('click', function(){
+  speedModeEnabled = !speedModeEnabled;
+  this.classList.toggle('selected', speedModeEnabled);
+  this.textContent = speedModeEnabled ? '⚡ Modo velocidad (activado)' : '⚡ Modo velocidad (desactivado)';
 });
 
 document.querySelectorAll('#difficultyGrid .cat-btn').forEach(btn => {
@@ -1840,6 +1856,7 @@ function clearHints(){
 }
 
 let timerInterval = null;
+let turnStartTime = null;
 
 function stopTurnTimer(){
   if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
@@ -1847,10 +1864,10 @@ function stopTurnTimer(){
 }
 
 function startTurnTimer(){
-  const start = Date.now();
+  turnStartTime = Date.now();
   document.getElementById('turnTimer').textContent = '⏱ 0:00';
   timerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - start) / 1000);
+    const elapsed = Math.floor((Date.now() - turnStartTime) / 1000);
     const m = Math.floor(elapsed / 60);
     const s = elapsed % 60;
     document.getElementById('turnTimer').textContent = '⏱ ' + m + ':' + String(s).padStart(2,'0');
@@ -1976,8 +1993,10 @@ document.getElementById('confirmBtn').addEventListener('click', function(){
   confirmed = true;
   const penalty = currentHintPenalty;
   if(penalty > 0) anyHintUsedThisGame = true;
+  const elapsedSeconds = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
+  const speedBonus = computeSpeedBonus(elapsedSeconds);
   clearHints();
-  roundGuesses[currentPlayerIdx] = { latlng: guessMarker.getPosition(), penalty: penalty };
+  roundGuesses[currentPlayerIdx] = { latlng: guessMarker.getPosition(), penalty: penalty, speedBonus: speedBonus };
 
   currentPlayerIdx++;
   if(currentPlayerIdx < players.length){
@@ -2000,9 +2019,9 @@ function revealRound(){
     const gLat = g.latlng.lat(), gLng = g.latlng.lng();
     const dist = haversine(gLat, gLng, current.lat, current.lon);
     const rawPts = scoreFromDistance(dist);
-    const pts = Math.max(0, rawPts - (g.penalty || 0));
+    const pts = Math.max(0, rawPts - (g.penalty || 0) + (g.speedBonus || 0));
     player.total += pts;
-    roundResults.push({name: player.name, color: player.color, dist, pts, penalty: g.penalty || 0});
+    roundResults.push({name: player.name, color: player.color, dist, pts, penalty: g.penalty || 0, speedBonus: g.speedBonus || 0});
 
     stats.totalGuesses++;
     if(dist < 50) stats.closeGuesses50++;
@@ -2040,9 +2059,10 @@ function revealRound(){
   let rowsHtml = '';
   roundResults.forEach((r, idx) => {
     const penaltyNote = r.penalty > 0 ? ' <span style="opacity:0.7;">(−' + r.penalty + ' por pistas)</span>' : '';
+    const bonusNote = r.speedBonus > 0 ? ' <span style="opacity:0.7;">(+' + r.speedBonus + ' por velocidad)</span>' : '';
     rowsHtml += '<div class="mp-round-row" style="border-left:4px solid '+r.color+';">' +
       '<span class="pname">' + (idx===0 ? '🏆 ' : '') + escapeHtml(r.name) + '</span>' +
-      '<span>' + Math.round(r.dist).toLocaleString('es') + ' km · ' + r.pts.toLocaleString('es') + ' pts' + penaltyNote + '</span></div>';
+      '<span>' + Math.round(r.dist).toLocaleString('es') + ' km · ' + r.pts.toLocaleString('es') + ' pts' + penaltyNote + bonusNote + '</span></div>';
   });
 
   const card = document.getElementById('resultCard');
