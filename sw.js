@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-errante-v3';
+const CACHE_NAME = 'atlas-errante-v4';
 const APP_SHELL = [
   './index.html',
   './manifest.json',
@@ -12,9 +12,8 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // En vez de cache.addAll (que falla entero si UN solo archivo
-      // no se encuentra), guardamos cada uno por separado: si alguno
-      // falla, no bloquea el resto ni impide que la PWA se instale.
+      // Cada archivo se guarda por separado: si alguno falla (ej. no se
+      // subió bien), no bloquea el resto ni impide que la PWA se instale.
       return Promise.all(
         APP_SHELL.map((url) =>
           cache.add(url).catch((err) => {
@@ -31,31 +30,39 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
+// Solo controlamos los archivos propios de la app (mismo origen y método GET).
+// Todo lo externo (Google Maps, tiles de mapas, fuentes, Leaflet) se deja
+// pasar directo a la red sin interceptar, para evitar cualquier interferencia
+// con esos recursos (algunos usan respuestas parciales o redirecciones que
+// pueden fallar al intentar guardarlas en caché).
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  const url = new URL(req.url);
-  const isSameOrigin = url.origin === self.location.origin;
 
-  if (isSameOrigin) {
-    // App shell: cache-first, so the game still opens offline
-    event.respondWith(
-      caches.match(req).then((cached) => cached || fetch(req))
-    );
-  } else {
-    // Map tiles, fonts, Leaflet from CDNs: network-first, cache as a fallback
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const resClone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
-          return res;
-        })
-        .catch(() => caches.match(req))
-    );
+  if (req.method !== 'GET') return;
+
+  let url;
+  try {
+    url = new URL(req.url);
+  } catch (e) {
+    return;
   }
+
+  if (url.origin !== self.location.origin) return;
+
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
+        if (res && res.ok) {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone)).catch(() => {});
+        }
+        return res;
+      });
+    }).catch(() => fetch(req))
+  );
 });
