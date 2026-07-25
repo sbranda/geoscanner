@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Atlas Errante">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -663,21 +663,25 @@
     </div>
 
     <div class="tab-panel" data-panel="pistas">
-      <div class="section-label">Tiempos antes de cada pista (segundos)</div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-        <label class="hint" style="text-align:left;">🛣️ Calles<br>
-          <input type="number" min="5" step="5" id="hintTime_calles" class="player-name-input" value="30">
-        </label>
-        <label class="hint" style="text-align:left;">🌊 Terreno<br>
-          <input type="number" min="5" step="5" id="hintTime_terreno" class="player-name-input" value="60">
-        </label>
-        <label class="hint" style="text-align:left;">🌍 Continente<br>
-          <input type="number" min="5" step="5" id="hintTime_continente" class="player-name-input" value="90">
-        </label>
-        <label class="hint" style="text-align:left;">🚩 País<br>
-          <input type="number" min="5" step="5" id="hintTime_pais" class="player-name-input" value="120">
-        </label>
+      <button class="cat-btn selected" id="hintsToggleBtn" style="width:100%; margin-bottom:12px;">💡 Pistas activadas</button>
+      <div id="hintsConfigSection">
+        <div class="section-label">Tiempos antes de cada pista (segundos)</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="hint" style="text-align:left;">🛣️ Calles<br>
+            <input type="number" min="5" step="5" id="hintTime_calles" class="player-name-input" value="30">
+          </label>
+          <label class="hint" style="text-align:left;">🌊 Terreno<br>
+            <input type="number" min="5" step="5" id="hintTime_terreno" class="player-name-input" value="60">
+          </label>
+          <label class="hint" style="text-align:left;">🌍 Continente<br>
+            <input type="number" min="5" step="5" id="hintTime_continente" class="player-name-input" value="90">
+          </label>
+          <label class="hint" style="text-align:left;">🚩 País<br>
+            <input type="number" min="5" step="5" id="hintTime_pais" class="player-name-input" value="120">
+          </label>
+        </div>
       </div>
+      <p class="hint" id="hintsDisabledMsg" style="display:none; margin-top:10px;">Las pistas no aparecerán durante la partida — deberás adivinar solo con lo que veas.</p>
     </div>
 
     <div class="tab-panel" data-panel="jugadores">
@@ -712,7 +716,7 @@
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // ======== CONFIGURA TU CLAVE DE GOOGLE MAPS AQUÍ ========
-const GOOGLE_MAPS_API_KEY = "AIzaSyDE2AlY5hj6tpAZqADjME1r4DW2S-XUSQA";
+const GOOGLE_MAPS_API_KEY = "TU_API_KEY_AQUI";
 // ==========================================================
 
 let googleMapsResolve;
@@ -873,6 +877,7 @@ const DIFFICULTY_ZOOM = { facil: 17, normal: 15, dificil: 13, experto: 11 };
 let selectedDifficulty = 'normal';
 let selectedRounds = 5;
 let totalRoundsTarget = 5;
+let hintsEnabled = true;
 
 // ---- Puntaje máximo histórico (localStorage) ----
 const HIGH_SCORE_KEY = 'atlasErrante_highScore';
@@ -1219,6 +1224,14 @@ document.querySelectorAll('#roundsGrid .cat-btn').forEach(btn => {
     this.classList.add('selected');
     selectedRounds = this.dataset.rounds === 'inf' ? 'inf' : parseInt(this.dataset.rounds, 10);
   });
+});
+
+document.getElementById('hintsToggleBtn').addEventListener('click', function(){
+  hintsEnabled = !hintsEnabled;
+  this.classList.toggle('selected', hintsEnabled);
+  this.textContent = hintsEnabled ? '💡 Pistas activadas' : '🚫 Pistas desactivadas';
+  document.getElementById('hintsConfigSection').style.display = hintsEnabled ? 'block' : 'none';
+  document.getElementById('hintsDisabledMsg').style.display = hintsEnabled ? 'none' : 'block';
 });
 
 document.querySelectorAll('#difficultyGrid .cat-btn').forEach(btn => {
@@ -1683,6 +1696,7 @@ function startTurnTimer(){
 
 function scheduleHints(){
   startTurnTimer();
+  if(!hintsEnabled) return;
   HINT_TIERS.forEach(tier => {
     hintTimeouts.push(setTimeout(() => {
       currentHintPenalty += tier.cost;
@@ -1939,7 +1953,7 @@ function showFinal(){
   stats.maxPlayersUsed = Math.max(stats.maxPlayersUsed, players.length);
   stats.maxRoundsSingleGame = Math.max(stats.maxRoundsSingleGame, round);
   stats.bestSingleGameScore = Math.max(stats.bestSingleGameScore || 0, sorted[0].total);
-  if(!anyHintUsedThisGame && round >= 5){ stats.hadNoHintGame = true; }
+  if(hintsEnabled && !anyHintUsedThisGame && round >= 5){ stats.hadNoHintGame = true; }
   if(isDailyMode){
     const todayStr = todayDateString();
     if(!stats.dailyDatesPlayed.includes(todayStr)) stats.dailyDatesPlayed.push(todayStr);

@@ -1,16 +1,28 @@
-const CACHE_NAME = 'atlas-errante-v1';
+const CACHE_NAME = 'atlas-errante-v3';
 const APP_SHELL = [
   './index.html',
   './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-192-maskable.png',
-  './icons/icon-512-maskable.png'
+  './world-countries.json',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-192-maskable.png',
+  './icon-512-maskable.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) => {
+      // En vez de cache.addAll (que falla entero si UN solo archivo
+      // no se encuentra), guardamos cada uno por separado: si alguno
+      // falla, no bloquea el resto ni impide que la PWA se instale.
+      return Promise.all(
+        APP_SHELL.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('No se pudo cachear en la instalación:', url, err);
+          })
+        )
+      );
+    })
   );
   self.skipWaiting();
 });
