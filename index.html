@@ -718,6 +718,8 @@
         <div id="mpNameInputs"></div>
       </div>
       <p class="hint" id="mpEmptyHint" style="margin-top:20px;">Modo para un jugador (por defecto). Actívalo arriba si van a jugar varios pasándose el celular.</p>
+      <button class="cat-btn" id="colorblindToggleBtn" style="width:100%; margin-top:16px;">🎨 Paleta apta para daltonismo (desactivada)</button>
+      <p class="hint" style="margin-top:6px;">Cambia los colores de los marcadores por una paleta más distinguible, y agrega un número a cada marcador para no depender solo del color.</p>
     </div>
 
     <div class="tab-panel" data-panel="logros">
@@ -895,7 +897,14 @@ let selectedCategory = 'todos';
 let selectedContinent = null;
 let pool = LOCATIONS;
 
-const PLAYER_COLORS = ['#B8863B','#2F6B62','#1B2A4A','#8E44AD','#C0392B','#16A085'];
+const PLAYER_COLORS_DEFAULT = ['#B8863B','#2F6B62','#1B2A4A','#8E44AD','#C0392B','#16A085'];
+// Paleta Okabe-Ito: diseñada para distinguirse bien con los tipos más comunes
+// de daltonismo (protanopia, deuteranopia, tritanopia).
+const PLAYER_COLORS_COLORBLIND = ['#E69F00','#56B4E9','#009E73','#F0E442','#0072B2','#D55E00'];
+let colorblindPaletteEnabled = false;
+function getPlayerColors(){
+  return colorblindPaletteEnabled ? PLAYER_COLORS_COLORBLIND : PLAYER_COLORS_DEFAULT;
+}
 let mpEnabled = false;
 let mpPlayerCount = 2;
 let players = [];
@@ -1340,6 +1349,12 @@ document.getElementById('mpToggleBtn').addEventListener('click', function(){
   if(mpEnabled) renderPlayerInputs();
 });
 
+document.getElementById('colorblindToggleBtn').addEventListener('click', function(){
+  colorblindPaletteEnabled = !colorblindPaletteEnabled;
+  this.classList.toggle('selected', colorblindPaletteEnabled);
+  this.textContent = colorblindPaletteEnabled ? '🎨 Paleta apta para daltonismo (activada)' : '🎨 Paleta apta para daltonismo (desactivada)';
+});
+
 document.getElementById('mpMinus').addEventListener('click', function(){
   if(mpPlayerCount > 2){ mpPlayerCount--; document.getElementById('mpCount').textContent = mpPlayerCount; renderPlayerInputs(); }
 });
@@ -1360,13 +1375,14 @@ document.getElementById('startGameBtn').addEventListener('click', function(){
 
   if(mpEnabled){
     const inputs = [...document.getElementById('mpNameInputs').querySelectorAll('input')];
+    const colors = getPlayerColors();
     players = inputs.map((inp, i) => ({
       name: inp.value.trim() || ('Jugador ' + (i+1)),
-      color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+      color: colors[i % colors.length],
       total: 0
     }));
   } else {
-    players = [{ name:'Tú', color: PLAYER_COLORS[0], total: 0 }];
+    players = [{ name:'Tú', color: getPlayerColors()[0], total: 0 }];
   }
 
   document.getElementById('turnIndicator').style.display = mpEnabled ? 'inline-block' : 'none';
@@ -2065,7 +2081,8 @@ function revealRound(){
     const marker = new google.maps.Marker({
       position: g.latlng,
       map: guessMap,
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale:8, fillColor:player.color, fillOpacity:1, strokeColor:'#fff', strokeWeight:2 }
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale:10, fillColor:player.color, fillOpacity:1, strokeColor:'#fff', strokeWeight:2 },
+      label: players.length > 1 ? { text: String(i+1), color:'#fff', fontSize:'11px', fontWeight:'bold' } : null
     });
     const line = animateGuessLine(guessMap, g.latlng, new google.maps.LatLng(current.lat, current.lon), player.color, 700);
     guessMarkersThisRound.push(marker, line);
