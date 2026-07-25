@@ -622,7 +622,10 @@
     </div>
     <div class="panel">
       <div class="panel-label"><span class="eyebrow">Tu conjetura</span> Toca el mapa para marcar</div>
-      <div id="mapGuess"></div>
+      <div style="position:relative;">
+        <div id="mapGuess"></div>
+        <div id="mapGuessLoading" style="position:absolute; inset:0; background:var(--bg-page); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono', monospace; color:var(--text-muted); font-size:0.85rem; text-align:center; padding:20px;">⏳ Cargando mapas de Google…</div>
+      </div>
     </div>
   </div>
 
@@ -659,6 +662,7 @@
     </svg>
     <h2 style="margin-bottom:4px;">Configura tu partida</h2>
     <div class="hint" id="highScoreDisplay" style="margin-bottom:14px; font-weight:600;"></div>
+    <div class="hint" id="mapsStatusDisplay" style="margin-bottom:14px;">⏳ Cargando mapas de Google…</div>
 
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="lugar">🌍 Lugar</button>
@@ -803,11 +807,17 @@ window.initGoogleMaps = function(){
 
 if(GOOGLE_MAPS_API_KEY === "TU_API_KEY_AQUI"){
   document.getElementById('keyWarning').style.display = 'block';
+  document.getElementById('mapGuessLoading').textContent = '⚠ Falta configurar la API key de Google';
+  document.getElementById('mapsStatusDisplay').textContent = '⚠ Falta configurar la API key de Google';
 } else {
   const gmScript = document.createElement('script');
   gmScript.src = 'https://maps.googleapis.com/maps/api/js?key=' + GOOGLE_MAPS_API_KEY + '&libraries=places&callback=initGoogleMaps&loading=async';
   gmScript.async = true;
   document.head.appendChild(gmScript);
+  googleMapsReady.then(() => {
+    const statusEl = document.getElementById('mapsStatusDisplay');
+    if(statusEl) statusEl.style.display = 'none';
+  });
 }
 
 const LOCATIONS = [
@@ -1739,6 +1749,7 @@ async function initGuessMap(){
     document.getElementById('confirmBtn').disabled = false;
     document.getElementById('guessHint').textContent = 'Marcador colocado. Puedes moverlo tocando otra vez.';
   });
+  document.getElementById('mapGuessLoading').style.display = 'none';
   guessMapReadyResolve();
 }
 initGuessMap();
@@ -2100,10 +2111,12 @@ async function startRound(){
   document.getElementById('streetview').style.display = 'block';
   document.getElementById('explorerLabel').textContent = 'Mira alrededor';
 
-  await googleMapsReady;
   document.getElementById('svLoading').style.display = 'flex';
-  document.getElementById('svLoading').textContent = 'Buscando Street View cercano…';
+  document.getElementById('svLoading').textContent = '⏳ Cargando mapas de Google…';
   document.getElementById('svPanorama').style.display = 'none';
+
+  await googleMapsReady;
+  document.getElementById('svLoading').textContent = 'Buscando Street View cercano…';
 
   let found = null, candidate = null;
   const maxTries = usingRandomMode ? 40 : 20;
