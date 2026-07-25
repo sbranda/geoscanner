@@ -1589,7 +1589,15 @@ function playTone(freq, startOffset, duration, peakVolume){
   osc.stop(t0 + duration + 0.05);
 }
 
+function vibrateDevice(pattern){
+  if(!soundEnabled) return;
+  try{
+    if(navigator.vibrate) navigator.vibrate(pattern);
+  } catch(e){}
+}
+
 function playSuccessSound(){
+  vibrateDevice([25, 40, 25]);
   if(!soundEnabled) return;
   try{
     playTone(523.25, 0, 0.15, 0.12);
@@ -1598,6 +1606,7 @@ function playSuccessSound(){
 }
 
 function playMissSound(){
+  vibrateDevice(70);
   if(!soundEnabled) return;
   try{
     playTone(220.00, 0, 0.30, 0.10);
